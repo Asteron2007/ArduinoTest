@@ -1,0 +1,11 @@
+# KEYWORD1 – жирный оранжевый, подсветка для типов данных и названий классов
+ARSensors  KEYWORD1
+TARSensor  KEYWORD1
+
+# KEYWORD2 – оранжевый цвет, для методов и функций
+Connected  KEYWORD2
+ToString  KEYWORD2
+ARAnalogSensorRead  KEYWORD2
+ARDigitalSensorRead  KEYWORD2
+
+# LITERAL1 – голубой цвет, для констант

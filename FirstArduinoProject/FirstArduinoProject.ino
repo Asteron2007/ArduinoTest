@@ -1,3 +1,9 @@
+// SmartHome v 1.0
+// Asteron Robotics Evolution
+// http://asteron24.ru/
+// asteron-2007@mail.ru
+//+7 910 553-46-37
+
 // библиотека для работы с датчиками серии DHT
 #include <TroykaDHT.h>
 // создаём объект класса DHT
@@ -5,9 +11,6 @@
 // типы сенсоров: DHT11, DHT21, DHT22
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-
-
-
 
 #include <SoftwareSerial.h>
 

@@ -1,0 +1,241 @@
+// SmartHome v 1.0
+// Asteron Robotics Evolution
+// http://asteron24.ru/
+// asteron-2007@mail.ru
+//+7 910 553-46-37
+
+#include <Arduino.h>
+#include <SoftwareSerial.h>
+#include  <Wire.h>
+#include "lib\ARSensors\ARSensors.h"
+// библиотека для работы с датчиками серии DHT
+#include <TroykaDHT.h>
+
+
+// Constants
+const String OwnerPhoneNumber = "+79105544321";
+const String AlarmPhoneNumber = OwnerPhoneNumber;
+
+const long BAUD = 115200;
+
+const int SENSORSCOUNT = 50;
+const int ACTUATORSCOUNT = 50;
+const String PlacementCaptions[] = // an array of placement captions in smart home
+{ "Hall", "Storage", "BedRoom", "OutDoor", "Attic", "BathRoom", "Kitchen", "OutsideGate", "HallWay" };
+
+
+
+//  Variables
+// Создать объект программного последовательного порта для связи с SIM900
+// Tx и Rx SIM900 подключены к выводам 7 и 8 Arduino
+SoftwareSerial mySerial(7, 8);
+// создаём объект класса DHT
+// передаём номер пина к которому подключён датчик и тип датчика
+// типы сенсоров: DHT11, DHT21, DHT22
+DHT dht(4, DHT11);
+
+char incomingByte;
+String inputString;
+
+TARSensor* Sensors[SENSORSCOUNT];
+// 2 correct
+TARSensor* Actuators[ACTUATORSCOUNT];
+
+
+
+void setup()
+{
+  Serial.begin(BAUD);//9600
+  dht.begin();
+  while (!Serial)
+  {
+    // wait for serial port to connect.
+  }
+  // Начать последовательную связь Arduino и SIM900
+  SIM900power();
+  mySerial.begin(BAUD);//9600
+  Serial.println("Initializing...");
+
+
+  mySerial.println("AT+CSCS=\"GSM\"");
+  updateSerial();
+
+  while (!mySerial.available()) {           // Зацикливаем и ждем инициализацию SIM800L
+    mySerial.println("AT");                  // Отправка команды AT
+    delay(1000);                             // Пауза
+    Serial.println("Connecting...");         // Печатаем текст
+  }
+  Serial.println("Connected!");            // Печатаем текст
+  mySerial.println("AT+CMGF=1");           // Отправка команды AT+CMGF=1
+  delay(1000);                             // Пауза
+  mySerial.println("AT+CNMI=1,2,0,0,0");   // Отправка команды AT+CNMI=1,2,0,0,0
+  delay(1000);                             // Пауза
+  mySerial.println("AT+CMGL=\"REC UNREAD\"");
+
+
+
+  // Sensors
+  // Windows
+  //                                   Name Placement Digital Unit Period Pin LowValue HiValue MinRange MaxRange
+  Sensors[0] = new TARSensor("KnockSensor0", PlacementCaptions[0], false, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[1] = new TARSensor("KnockSensor1", PlacementCaptions[0], false, "", 100, A1, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[2] = new TARSensor("KnockSensor2", PlacementCaptions[0], false, "", 100, A2, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[3] = new TARSensor("KnockSensor3", PlacementCaptions[5], false, "", 100, A3, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[4] = new TARSensor("KnockSensor4", PlacementCaptions[8], false, "", 100, A4, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[5] = new TARSensor("KnockSensor5", PlacementCaptions[2], false, "", 100, A5, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[6] = new TARSensor("KnockSensor6", PlacementCaptions[2], false, "", 100, A6, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[7] = new TARSensor("KnockSensor7", PlacementCaptions[1], false, "", 100, A7, 0.0F, 1.0F,  0.0F, 1.0F);
+
+  // 2 correct
+  // Doors
+  Sensors[8] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[9] = new TARSensor("GerconSensor", PlacementCaptions[1], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+
+  // Temperature & Humidity
+  Sensors[10] = new TARSensor("Temperature", PlacementCaptions[0], true, "", 100, 1, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[11] = new TARSensor("Temperature", PlacementCaptions[0], true, "", 100, 2, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[12] = new TARSensor("Temperature", PlacementCaptions[0], true, "", 100, 3, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[13] = new TARSensor("Temperature", PlacementCaptions[0], true, "", 100, 4, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[14] = new TARSensor("Temperature", PlacementCaptions[0], true, "", 100, 5, 0.0F, 1.0F,  0.0F, 1.0F);
+
+  // Fire
+  Sensors[15] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[16] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[17] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[18] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[19] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  // Smoke
+  Sensors[20] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[21] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[22] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[23] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[24] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  // Move detect in home 10 pts
+  Sensors[25] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[26] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[27] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[28] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[29] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[30] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[31] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[32] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[33] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  //  10 reserved
+  Sensors[34] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  // Move detect OutDoors 11 pts
+  Sensors[35] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[36] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[37] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[38] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[39] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[40] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[41] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[42] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[43] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[44] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+
+  // Lighting
+  Sensors[45] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[46] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+
+  // Wattering
+  Sensors[47] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  Sensors[48] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+
+  // OutDoors temperature
+  Sensors[49] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+
+
+  // Actuators
+  for (int i = 0; i < ACTUATORSCOUNT; i++)
+    Actuators[i] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+
+
+
+}
+
+void loop()
+{
+
+
+
+  if (mySerial.available()) {                     // Проверяем, если есть доступные данные
+    delay(100);                                 // Пауза
+
+    while (mySerial.available()) {              // Проверяем, есть ли еще данные.
+      incomingByte = mySerial.read();             // Считываем байт и записываем в переменную incomingByte
+      inputString += incomingByte;                // Записываем считанный байт в массив inputString
+    }
+
+    delay(10);                                  // Пауза
+    Serial.println(inputString);                // Отправка в "Мониторинг порта" считанные данные
+    inputString.toUpperCase();                  // Меняем все буквы на заглавные
+
+    if (inputString.indexOf("DATA") > -1) {     // Проверяем полученные данные
+
+      SendSMS(String("Sensor[i]"), OwnerPhoneNumber); // send SMS
+    }
+
+    delay(50);
+    if (inputString.indexOf("OK") == -1) {
+      mySerial.println("AT+CMGDA=\"DEL ALL\"");
+      delay(1000);
+    }
+
+    inputString = "";
+  }
+
+
+
+
+  String header = mySerial.Stream.readStringUntil('\n');
+  String body = mySerial.Stream.readStringUntil('\n');
+  Serial.println("Header: " + header);
+  Serial.println("Body: " + body);
+}
+
+
+
+
+
+// functions
+void SIM900power()
+{
+  pinMode(9, OUTPUT);
+  digitalWrite(9, LOW);
+  delay(1000);
+  digitalWrite(9, HIGH);
+  delay(2000);
+  digitalWrite(9, LOW);
+  delay(3000);
+}
+
+void updateSerial()
+{
+  delay(500);
+  while (Serial.available())
+  {
+    // Пересылка того, что было получено с аппаратного последовательного порта,
+    // на программный последовательный порт
+    mySerial.write(Serial.read());
+  }
+  while (mySerial.available())
+  {
+    // Пересылка того, что было получено с программного последовательного порта,
+    // на аппаратный последовательный порт
+    Serial.write(mySerial.read());
+  }
+}
+
+void SendSMS(String text, String phone)  // Процедура Отправка SMS
+{
+  Serial.println("SMS send started");
+  mySerial.println("AT+CMGS=\"" + phone + "\"");
+  delay(500);
+  mySerial.print(text);
+  delay(500);
+  mySerial.print((char)26);
+  delay(500);
+  Serial.println("SMS send complete");
+  delay(2000);
+}
