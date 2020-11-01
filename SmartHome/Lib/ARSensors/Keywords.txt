@@ -1,3 +1,4 @@
+  
 # KEYWORD1 – жирный оранжевый, подсветка для типов данных и названий классов
 ARSensors  KEYWORD1
 TARSensor  KEYWORD1
