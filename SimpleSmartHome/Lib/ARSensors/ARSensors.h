@@ -37,86 +37,122 @@
 //Благодаря тому, что сенсор делает измерения только по запросу, достигается энергоэффективность:
 //пока общения нет, датчик потребляет ток 100 мкА.
 
-
+enum TARSensorType  {
+  stDigital,
+  stAnalog,
+  stDHTHumidity,
+  stTemperature,
+};
 
 class TARSensor
 {
   public:
-    TARSensor(String Name, String Placement, bool Digital, String Unit, unsigned long Period, byte Pin,
-              float LowValue = 0.0F, float HiValue = 1.0F,  float MinRange = 0.0F, float MaxRange = 1.0F)
+    TARSensor(String Name, byte Placement, TARSensorType SensorType, String Unit, unsigned long Period, byte Pin,
+              float LowValue = 0.0F, float HiValue = 1.0F)
     {
       this->Name = Name;
       this->Placement = Placement;
-      this->Digital = Digital;
+      this->SensorType = SensorType;
       this->Unit = Unit;
       this->Period = Period;
       this->HiValue = HiValue;
       this->LowValue = HiValue;
-      this->MinRange = MinRange;
-      this->MaxRange = MaxRange;
       this->Pin = Pin;
-      //pinMode(this->Pin, INPUT);
+      pinMode(this->Pin, INPUT);
       onLow = NULL;
       onHi = NULL;
-      onRead = NULL;
+      Read = NULL;
     }
 
     String Name;
-    String Placement;
+    byte Placement;
     String Unit;
-    bool Digital;
+    TARSensorType SensorType;
     unsigned long Period; // polling period
     float HiValue;
     float LowValue;
-    float MinRange;
-    float MaxRange;
     byte Pin;
-    void (*onLow)(TARSensor Sensor);
-    void (*onHi)(TARSensor Sensor);
-    int (*onRead)(TARSensor Sensor);
+    void (*onLow)(TARSensor& Sensor);
+    void (*onHi)(TARSensor& Sensor);
+    String (*Read)(TARSensor& Sensor);
+    void CheckHi()
+    {
+      if (HiValue < Value.toFloat())
+      {
+        if (onHi)
+          onHi(*this);
+      }
+    }
+    void CheckLow()
+    {
+      if (LowValue > Value.toFloat())
+      {
+        if (onLow)
+          onLow(*this);
+      }
+    }
 
-    float FloatValue;
-    bool BoolValue;
-    int Value;
+    String Value;
     bool Connected() //
     {
       bool Connected = true;
       if (Connected)
-        ConnectedStatus = "Connected";
+        ConnectedStatus = F("Connected");
       else
-        ConnectedStatus = "Disconnected";
+        ConnectedStatus = F("Disconnected");
       return Connected;
     }
     String ConnectedStatus;
     String ToString()
     {
-      if (Connected())
-      {
-        if (Digital)
-          return Placement + " " + Name + ": " + String (BoolValue) + " " + Unit;
-        else
-          return Placement + " " + Name + ": " + String (FloatValue) + " " + Unit;
-      }
-      else
-        return Name + ": is disconnected!" ;
+      return "";
     }
 
   private:
 
 };
-
-int ARAnalogSensorRead(TARSensor& Sensor)
-{
-  // reading period
-  Sensor.Value = analogRead(Sensor.Pin);
-  Sensor.FloatValue = (float)Sensor.Value * (Sensor.MaxRange - Sensor.MinRange) / 1024;
-  return analogRead(Sensor.Pin);
+// функция считывает аналоговый вход заданное количество раз
+// и возвращает отфильтрованное значение
+int readMean(int pin, int samples) {
+  // переменная для хранения суммы считанных значений
+  int sum = 0;
+  // чтение и складывание значений
+  for (int i = 0; i < samples; i++) {
+    sum = sum + analogRead(pin);
+  }
+  // делим сумму значений на количество измерений
+  sum = sum / samples;
+  // возвращаем среднее значение
+  return sum;
 }
 
-int ARDigitalSensorRead(TARSensor& Sensor)
+
+
+String ARAnalogSensorRead(TARSensor& Sensor)
 {
-  // reading period
-  Sensor.Value = digitalRead(Sensor.Pin);
-  Sensor.BoolValue = Sensor.Value;
-  return digitalRead(Sensor.Pin);
+  Sensor.Value = String(analogRead(Sensor.Pin));
+  delay(Sensor.Period);
+  return Sensor.Value;
+}
+
+String ARDigitalSensorRead(TARSensor& Sensor)
+{
+  Sensor.Value = String(digitalRead(Sensor.Pin));
+  delay(Sensor.Period);
+  return Sensor.Value;
+}
+
+
+
+String ARAnalogTemperatureSensorRead(TARSensor& Sensor)
+{ //ky-013
+  double Temp;
+  Temp = log(((10240000 / readMean(Sensor.Pin, 20)) - 10000));
+  Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp )) * Temp ); // Уравнение Стейнхарта-Харта
+  Temp = Temp - 273.15; // Кельвин -> Цельсий
+
+  Sensor.Value = String(Temp);
+  //Sensor.Value = String((readMean(Sensor.Pin, 30) * 5.0 / 1024 + 0.5) * 100 - 273.15);
+  delay(Sensor.Period);
+  return Sensor.Value;
 }

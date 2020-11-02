@@ -188,10 +188,10 @@ void loop()
 
 
 
-  String header = mySerial.Stream.readStringUntil('\n');
-  String body = mySerial.Stream.readStringUntil('\n');
-  Serial.println("Header: " + header);
-  Serial.println("Body: " + body);
+//  String header = mySerial.stream.readStringUntil('\n');
+//  String body = mySerial.stream.readStringUntil('\n');
+//  Serial.println("Header: " + header);
+//  Serial.println("Body: " + body);
 }
 
 
