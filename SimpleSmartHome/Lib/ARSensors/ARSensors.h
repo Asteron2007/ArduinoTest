@@ -47,8 +47,8 @@ enum TARSensorType  {
 class TARSensor
 {
   public:
-    TARSensor(String Name, byte Placement, TARSensorType SensorType, String Unit, unsigned long Period, byte Pin,
-              float LowValue = 0.0F, float HiValue = 1.0F)
+    TARSensor(String Name, byte Placement, TARSensorType SensorType, String Unit, unsigned long Period,
+              byte Pin, float LowValue = 0.0F, float HiValue = 1.0F, bool Armed = false)
     {
       this->Name = Name;
       this->Placement = Placement;
@@ -57,6 +57,9 @@ class TARSensor
       this->Period = Period;
       this->HiValue = HiValue;
       this->LowValue = HiValue;
+      this->LowAlarmed = false;
+      this->HiAlarmed = false;
+      this-> Armed = Armed;
       this->Pin = Pin;
       pinMode(this->Pin, INPUT);
       onLow = NULL;
@@ -71,25 +74,36 @@ class TARSensor
     unsigned long Period; // polling period
     float HiValue;
     float LowValue;
+    bool LowAlarmed;
+    bool HiAlarmed;
+    bool Armed;
     byte Pin;
     void (*onLow)(TARSensor& Sensor);
     void (*onHi)(TARSensor& Sensor);
     String (*Read)(TARSensor& Sensor);
     void CheckHi()
     {
-      if (HiValue < Value.toFloat())
-      {
-        if (onHi)
-          onHi(*this);
-      }
+      if (Armed)
+        if (!HiAlarmed)
+          if (HiValue < Value.toFloat())
+          {
+            HiAlarmed = true;
+            if (onHi)
+              onHi(*this);
+          }
+          else HiAlarmed = false;
     }
     void CheckLow()
     {
-      if (LowValue > Value.toFloat())
-      {
-        if (onLow)
-          onLow(*this);
-      }
+      if (Armed)
+        if (!LowAlarmed)
+          if (LowValue > Value.toFloat())
+          {
+            LowAlarmed = true;
+            if (onLow)
+              onLow(*this);
+          }
+          else LowAlarmed = false;
     }
 
     String Value;

@@ -22,7 +22,8 @@ const int SENSORSCOUNT = 4;//50;
 const String PlacementCaptions[]  = // an array of placement captions in smart home
 { "Hall", "Storage", "BedRoom", "OutDoor", "Attic", "BathRoom", "Kitchen", "OutsideGate", "HallWay" };
 
-
+const float AlarmHiMoveDetect = 200.0F;
+const float NoAlarmHiMoveDetect = 2000.0F;
 
 //  Variables
 // Создать объект программного последовательного порта для связи с SIM900
@@ -34,22 +35,65 @@ SoftwareSerial mySerial(7, 8);
 DHT dht(4, DHT11);
 uint32_t timer = 0;
 
-const float AlarmHiMoveDetect = 200.0F;
-const float NoAlarmHiMoveDetect = 2000.0F;
+
+
+bool Armed = false;
+
+//bool KnockSensorAlarm = false;
+//bool MoveDetectAlarm = false;
+//bool LowTemperatureAlarm = false;
+//bool HiTemperatureAlarm = false;
+//bool SoundSensorAlarm = false;
+//bool FireSensorAlarm = false;
+//bool LowHumidityAlarm = false;
+//bool HiHumidityAlarm = false;
 
 
 
+
+
+
+// Sensors
+//
 TARSensor Sensors[SENSORSCOUNT] = {
-  TARSensor("Knock0", 0, stAnalog, "", 100, A0, 0.0F, NoAlarmHiMoveDetect),
-  TARSensor("MoveDetect0", 0, stAnalog, "", 100, A1, 0.0F, NoAlarmHiMoveDetect),
-  TARSensor("Temperature0", 0, stAnalog, "C", 100, A2, 20.0F, 25.0F),
-  TARSensor("KeyBoard0", 0, stAnalog, "", 100, A3, 0.0F, 1024.0F),
+  //  Analog inputs
+  // Name Placement Digital Unit Period Pin LowValue HiValue
+  TARSensor("Knock0", 0, stAnalog, "", 100, A0, 0.0F, NoAlarmHiMoveDetect, Armed),
+  TARSensor("MoveDetect0", 0, stAnalog, "", 100, A1, 0.0F, NoAlarmHiMoveDetect, Armed),
+  TARSensor("Temperature0", 0, stAnalog, "C", 100, A2, 20.0F, 12.0F, true),//25
+  TARSensor("KeyBoard0", 0, stAnalog, "", 100, A3, 0.0F, 1024.0F, true),
   //TARSensor("Sound0", 0, stAnalog, "dB", 100, A4, 0.0F, 850.0F),
   //TARSensor("Fire0", 0, stAnalog, "", 100, A5, 0.0F, 700.0F),
   //
   //TARSensor("Temperature1", 0, stTemperature, "C", 5000, 4, 19.0F, 26.0F),
   //TARSensor("Humidity0", 0, stDHTHumidity, "%", 5000, 4, 10.0F, 80.0F)
+  //  Digital inputs
+
+
+  //  // 2 connect & correct
+  //  // Smoke
+  // GerconSensor
+  //  Sensors[8] = new TARSensor("SmokeSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  //  // Lighting
+  //  Sensors[9] = new TARSensor("LightingSensor", PlacementCaptions[1], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+  //  // Wattering влажность почвы
+  //  Sensors[10] = new TARSensor("WatteringSensor", PlacementCaptions[0], true, "", 100, 1, 0.0F, 1.0F,  0.0F, 1.0F);
+  //  // Rain влажность почвы
+  //  Sensors[11] = new TARSensor("RainSensor", PlacementCaptions[0], true, "", 100, 2, 0.0F, 1.0F,  0.0F, 1.0F);
+  //  //  Air Quallity
+  //  Sensors[12] = new TARSensor("Air Quallity", PlacementCaptions[0], true, "", 100, 3, 0.0F, 1.0F,  0.0F, 1.0F);
+  //  // PhotoResistor
+  //  Sensors[13] = new TARSensor("PhotoResistor", PlacementCaptions[0], true, "", 100, 4, 0.0F, 1.0F,  0.0F, 1.0F);
+  //  // OutDoors temperature
+  //  Sensors[49] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
+
 };
+
+
+
+
+
+
 // 2 correct
 //TARSensor Actuators[ACTUATORSCOUNT];
 
@@ -88,86 +132,7 @@ void setup()
 
   InitSMSModem();
 
-  // Sensors
-  //
-  //  Analog inputs                    Name Placement Digital Unit Period Pin LowValue HiValue MinRange MaxRange
-  // Sensors[0] = new TARSensor("KnockSensor0", PlacementCaptions[0], false, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[1] = new TARSensor("MoveDetectSensor0", PlacementCaptions[0], false, "", 100, A1, 0.0F, 1.0F,  0.0F, 1.0F);
-  // Sensors[2] = new TARSensor("TemperatureSensor0", PlacementCaptions[0], false, "", 100, A2, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[3] = new TARSensor("KeyBoard0", PlacementCaptions[0], false, "", 100, A3, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[4] = new TARSensor("SoundSensor0", PlacementCaptions[0], false, "", 100, A4, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[5] = new TARSensor("FireSensor0", PlacementCaptions[0], false, "", 100, A5, 0.0F, 1.0F,  0.0F, 1.0F);
-  //
-  //  Sensors[6] = new TARSensor("TemperatureSensor1", PlacementCaptions[0], false, "", 100, 4, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[7] = new TARSensor("HumiditySensor0", PlacementCaptions[0], false, "", 100, 4, 0.0F, 1.0F,  0.0F, 1.0F);
 
-  //  // 2 connect & correct
-  //  // Smoke
-  //  Sensors[8] = new TARSensor("SmokeSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  // Lighting
-  //  Sensors[9] = new TARSensor("LightingSensor", PlacementCaptions[1], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  // Wattering влажность почвы
-  //  Sensors[10] = new TARSensor("WatteringSensor", PlacementCaptions[0], true, "", 100, 1, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  // Rain влажность почвы
-  //  Sensors[11] = new TARSensor("RainSensor", PlacementCaptions[0], true, "", 100, 2, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  //  Air Quallity
-  //  Sensors[12] = new TARSensor("Air Quallity", PlacementCaptions[0], true, "", 100, 3, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  // PhotoResistor
-  //  Sensors[13] = new TARSensor("PhotoResistor", PlacementCaptions[0], true, "", 100, 4, 0.0F, 1.0F,  0.0F, 1.0F);
-
-
-
-
-
-
-  //  Sensors[14] = new TARSensor("Temperature", PlacementCaptions[0], true, "", 100, 5, 0.0F, 1.0F,  0.0F, 1.0F);
-  //
-  //  // Fire
-  //  Sensors[15] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[16] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[17] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[18] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[19] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  // Smoke
-  //  Sensors[20] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[21] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[22] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[23] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[24] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  // Move detect in home 10 pts
-  //  Sensors[25] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[26] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[27] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[28] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[29] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[30] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[31] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[32] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[33] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  //  10 reserved
-  //  Sensors[34] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  // Move detect OutDoors 11 pts
-  //  Sensors[35] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[36] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[37] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[38] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[39] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[40] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[41] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[42] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[43] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[44] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //
-  //  // Lighting
-  //  Sensors[45] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[46] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //
-  //  // Wattering
-  //  Sensors[47] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  Sensors[48] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //
-  //  // OutDoors temperature
-  //  Sensors[49] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
 
 
   // Actuators
@@ -179,23 +144,23 @@ void setup()
   Sensors[1].Read = ARAnalogSensorRead;
   Sensors[2].Read = ARAnalogTemperatureSensorRead;
   Sensors[3].Read = ARAnalogSensorRead;
-//  Sensors[4].Read = ARAnalogSensorRead;
-//  Sensors[5].Read = ARAnalogSensorRead;
-//  Sensors[6].Read = getTemperature;
-//  Sensors[7].Read = getHumidity;
+  //  Sensors[4].Read = ARAnalogSensorRead;
+  //  Sensors[5].Read = ARAnalogSensorRead;
+  //  Sensors[6].Read = getTemperature;
+  //  Sensors[7].Read = getHumidity;
 
   Sensors[0].onHi = Alarm;
   Sensors[1].onHi = Alarm;
   Sensors[2].onHi = Alarm;
   Sensors[3].onHi = Alarm;
-//  Sensors[4].onHi = Alarm;
-//  Sensors[5].onHi = Alarm;
-//  Sensors[6].onHi = Alarm;
-//  Sensors[7].onHi = Alarm;
+  //  Sensors[4].onHi = Alarm;
+  //  Sensors[5].onHi = Alarm;
+  //  Sensors[6].onHi = Alarm;
+  //  Sensors[7].onHi = Alarm;
 
   //Sensors[0].onLow = Alarm;
   //Sensors[1].onLow = Alarm;
-  //Sensors[2].onLow = Alarm;
+  Sensors[2].onLow = Alarm;
   //Sensors[3].onLow = Alarm;
   //Sensors[4].onLow = Alarm;
   //Sensors[5].onLow = Alarm;
@@ -207,7 +172,7 @@ void setup()
 
 
 }
-bool Alarmed = false;
+
 void loop()
 {
 
@@ -232,16 +197,16 @@ void loop()
   String Message = "";
 
 
-//  if (!mySerial.available())
-//  {
-//    mySerial.println("AT");
-//    delay(1000);
-//    if (!mySerial.available())
-//    {
-//      Serial.println(F("RESET"));
-//      SIM900Restart();
-//    }
-//  }
+  //  if (!mySerial.available())
+  //  {
+  //    mySerial.println("AT");
+  //    delay(1000);
+  //    if (!mySerial.available())
+  //    {
+  //      Serial.println(F("RESET"));
+  //      SIM900Restart();
+  //    }
+  //  }
 
 
   if (mySerial.available())// Проверяем, если есть доступные данные
@@ -277,25 +242,33 @@ void loop()
 
       }
       //постановка на охрну
-      if (inputString.indexOf(F("ALARM")) > -1) {     // Проверяем полученные данные
-        Alarmed = true;
+      if (inputString.indexOf(F("ARM")) > -1) {     // Проверяем полученные данные
+        Armed = true;
         Sensors[0].HiValue = AlarmHiMoveDetect;
         Sensors[1].HiValue = AlarmHiMoveDetect;
-        Message = F("ALARMED");
+        Message = F("ARMED");
         Serial.println(Message);
         SendSMS(Message, OwnerPhoneNumber); // send SMS
         delay(1000);
       }
+      // снятие с охраны
       if (inputString.indexOf(F("FREE")) > -1) {     // Проверяем полученные данные
-        Alarmed = false;
+        Armed = false;
         Sensors[0].HiValue = NoAlarmHiMoveDetect;
         Sensors[1].HiValue = NoAlarmHiMoveDetect;
-        Message = F("DISALARMED");
+        Message = F("DISARMED");
         Serial.println(Message);
         SendSMS(Message, OwnerPhoneNumber); // send SMS
         delay(1000);
       }
+      // снятие с охраны
+      if (inputString.indexOf(F("HELP")) > -1) {     // Проверяем полученные данные
 
+        Message = F("ARM\nFREE\nDATA\nRESET\nHELP\nSTATUS\n");
+        Serial.println(Message);
+        SendSMS(Message, OwnerPhoneNumber); // send SMS
+        delay(1000);
+      }
     }
 
     delay(50);
@@ -358,29 +331,29 @@ void updateSerial()
   }
 }
 
-void SendSMS(String text, String phone)  // Процедура Отправка SMS
-{
-  //Serial.println(F("SMS send started"));
-  mySerial.println("AT+CMGS=\"" + phone + "\"");
-  delay(500);
-  mySerial.print(text);
-  delay(500);
-  mySerial.print((char)26);
-  delay(500);
-  Serial.println(F("SMS send complete"));
-  delay(500);
-}
-
 //void SendSMS(String text, String phone)  // Процедура Отправка SMS
 //{
 //  //Serial.println(F("SMS send started"));
-//  Serial.println("AT+CMGS=\"" + phone + "\"");
+//  mySerial.println("AT+CMGS=\"" + phone + "\"");
 //  delay(500);
-//  Serial.print(text);
+//  mySerial.print(text);
+//  delay(500);
+//  mySerial.print((char)26);
 //  delay(500);
 //  Serial.println(F("SMS send complete"));
 //  delay(500);
 //}
+
+void SendSMS(String text, String phone)  // Процедура Отправка SMS
+{
+  //Serial.println(F("SMS send started"));
+  Serial.println("AT+CMGS=\"" + phone + "\"");
+  delay(500);
+  Serial.print(text);
+  delay(500);
+  Serial.println(F("SMS send complete"));
+  delay(500);
+}
 
 
 
@@ -388,9 +361,9 @@ void SendSMS(String text, String phone)  // Процедура Отправка 
 void Alarm(TARSensor& Sensor)
 {
   SendSMS(String(PlacementCaptions[Sensor.Placement] + F(": Sensor") + Sensor.Name + ": " +
-                 Sensor.Value + Sensor.Unit), OwnerPhoneNumber);
+                 Sensor.Value + Sensor.Unit  + "\n"), OwnerPhoneNumber);
   Serial.println("ALARM: " + PlacementCaptions[Sensor.Placement] + F(": Sensor") + Sensor.Name + ": " +
-                 Sensor.Value + Sensor.Unit);
+                 Sensor.Value + Sensor.Unit + "\n");
 }
 
 
