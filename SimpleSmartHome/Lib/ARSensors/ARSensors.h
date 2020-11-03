@@ -8,7 +8,8 @@
 #pragma once
 #include <Arduino.h>
 //#define _BTN_DEB_TIME 100  // таймаут антидребезга
-
+// библиотека для работы с датчиками серии DHT
+#include <TroykaDHT.h>
 //
 //Подключение и использование
 //Чтобы соединить любой сенсор с Arduino и начать считывать его показания, нужно:
@@ -47,7 +48,7 @@ enum TARSensorType  {
 class TARSensor
 {
   public:
-    TARSensor(String Name, byte Placement, TARSensorType SensorType, String Unit, unsigned long Period,
+    TARSensor(char* Name, byte Placement, TARSensorType SensorType, char* Unit, unsigned long Period,
               byte Pin, float LowValue = 0.0F, float HiValue = 1.0F, bool Armed = false)
     {
       this->Name = Name;
@@ -56,7 +57,7 @@ class TARSensor
       this->Unit = Unit;
       this->Period = Period;
       this->HiValue = HiValue;
-      this->LowValue = HiValue;
+      this->LowValue = LowValue;
       this->LowAlarmed = false;
       this->HiAlarmed = false;
       this-> Armed = Armed;
@@ -64,7 +65,7 @@ class TARSensor
       pinMode(this->Pin, INPUT);
       onLow = NULL;
       onHi = NULL;
-      Read = NULL;
+      onRead = NULL;
     }
 
     String Name;
@@ -80,12 +81,21 @@ class TARSensor
     byte Pin;
     void (*onLow)(TARSensor& Sensor);
     void (*onHi)(TARSensor& Sensor);
-    String (*Read)(TARSensor& Sensor);
+    //String (*onRead)(TARSensor& Sensor);
+    void (*onRead)(TARSensor& Sensor);
+    void Read()
+    {
+      if (onRead) {
+        onRead(*this);
+        CheckHi();
+        CheckLow();
+      }
+    }
     void CheckHi()
     {
       if (Armed)
         if (!HiAlarmed)
-          if (HiValue < Value.toFloat())
+          if (HiValue <= Value.toFloat())
           {
             HiAlarmed = true;
             if (onHi)
@@ -97,8 +107,8 @@ class TARSensor
     {
       if (Armed)
         if (!LowAlarmed)
-          if (LowValue > Value.toFloat())
-          {
+          if (LowValue >= Value.toFloat())
+          {            
             LowAlarmed = true;
             if (onLow)
               onLow(*this);
@@ -107,20 +117,20 @@ class TARSensor
     }
 
     String Value;
-    bool Connected() //
-    {
-      bool Connected = true;
-      if (Connected)
-        ConnectedStatus = F("Connected");
-      else
-        ConnectedStatus = F("Disconnected");
-      return Connected;
-    }
-    String ConnectedStatus;
-    String ToString()
-    {
-      return "";
-    }
+    //    bool Connected() //
+    //    {
+    //      bool Connected = true;
+    //      if (Connected)
+    //        ConnectedStatus = F("Connected");
+    //      else
+    //        ConnectedStatus = F("Disconnected");
+    //      return Connected;
+    //    }
+    //    String ConnectedStatus;
+    //    String ToString()
+    //    {
+    //      return "";
+    //    }
 
   private:
 
@@ -142,23 +152,23 @@ int readMean(int pin, int samples) {
 
 
 
-String ARAnalogSensorRead(TARSensor& Sensor)
+void ARAnalogSensorRead(TARSensor& Sensor)
 {
   Sensor.Value = String(analogRead(Sensor.Pin));
   delay(Sensor.Period);
-  return Sensor.Value;
+  return ;//Sensor.Value;
 }
 
-String ARDigitalSensorRead(TARSensor& Sensor)
+void ARDigitalSensorRead(TARSensor& Sensor)
 {
   Sensor.Value = String(digitalRead(Sensor.Pin));
   delay(Sensor.Period);
-  return Sensor.Value;
+  return ;//Sensor.Value;
 }
 
 
 
-String ARAnalogTemperatureSensorRead(TARSensor& Sensor)
+void ARAnalogTemperatureSensorRead(TARSensor& Sensor)
 { //ky-013
   double Temp;
   Temp = log(((10240000 / readMean(Sensor.Pin, 20)) - 10000));
@@ -168,5 +178,89 @@ String ARAnalogTemperatureSensorRead(TARSensor& Sensor)
   Sensor.Value = String(Temp);
   //Sensor.Value = String((readMean(Sensor.Pin, 30) * 5.0 / 1024 + 0.5) * 100 - 273.15);
   delay(Sensor.Period);
-  return Sensor.Value;
+  return ;//Sensor.Value;
+}
+
+void DHTTemperatureRead(TARSensor& Sensor)
+{
+  // создаём объект класса DHT
+  // передаём номер пина к которому подключён датчик и тип датчика
+  // типы сенсоров: DHT11, DHT21, DHT22
+  DHT dht(4, DHT11);
+  dht.begin();
+  //int Period = 1000 * 2;
+  //delay(Sensor.Period);
+  //if (millis() - timer >= Period) {
+  // ваше действие
+
+  // считывание данных с датчика
+  dht.read();
+  // проверяем состояние данных
+  switch (dht.getState()) {
+    // всё OK
+    case DHT_OK:
+      // выводим показания влажности и температуры
+      Sensor.Value = String(dht.getTemperatureC());
+      delay(Sensor.Period);
+      return ;//Sensor.Value;
+      break;
+    // ошибка контрольной суммы
+    case DHT_ERROR_CHECKSUM:
+      Serial.println("Checksum error");
+      break;
+    // превышение времени ожидания
+    case DHT_ERROR_TIMEOUT:
+      Serial.println("Time out error");
+      break;
+    // данных нет, датчик не реагирует или отсутствует
+    case DHT_ERROR_NO_REPLY:
+      Serial.println("Sensor not connected");
+      break;
+  }
+  //  timer += Period;
+  //}
+}
+
+//String DHTHumidityRead(TARSensor& Sensor)
+void DHTHumidityRead(TARSensor& Sensor)
+{
+  // создаём объект класса DHT
+  // передаём номер пина к которому подключён датчик и тип датчика
+  // типы сенсоров: DHT11, DHT21, DHT22
+  DHT dht(4, DHT11);
+  dht.begin();
+  //int Period = 1000 * 2;
+
+  //delay(Sensor.Period);
+  //  if (millis() - timer >= Period) {
+  //   ваше действие
+
+  // считывание данных с датчика
+  dht.read();
+  // проверяем состояние данных
+  switch (dht.getState()) {
+    // всё OK
+    case DHT_OK:
+      // выводим показания влажности и температуры
+      delay(500);
+      Sensor.Value = String(dht.getHumidity());
+      delay(Sensor.Period);
+      //return Sensor.Value;
+      return;
+      break;
+    // ошибка контрольной суммы
+    case DHT_ERROR_CHECKSUM:
+      Serial.println(F("Checksum error"));
+      break;
+    // превышение времени ожидания
+    case DHT_ERROR_TIMEOUT:
+      Serial.println(F("Time out error"));
+      break;
+    // данных нет, датчик не реагирует или отсутствует
+    case DHT_ERROR_NO_REPLY:
+      Serial.println(F("Sensor not connected"));
+      break;
+  }
+  //timer += Period;
+  //}
 }

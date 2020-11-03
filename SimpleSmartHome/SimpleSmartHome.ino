@@ -8,16 +8,13 @@
 #include <SoftwareSerial.h>
 #include  <Wire.h>
 #include "lib\ARSensors\ARSensors.h"
-// библиотека для работы с датчиками серии DHT
-#include <TroykaDHT.h>
-
 
 // Constants
 const  String OwnerPhoneNumber  = "+79105544321";
 const bool Debug = false;
 const long BAUD = 9600;
 
-const int SENSORSCOUNT = 4;//50;
+const int SENSORSCOUNT = 9;//50;
 //const int ACTUATORSCOUNT = 8;//
 const String PlacementCaptions[]  = // an array of placement captions in smart home
 { "Hall", "Storage", "BedRoom", "OutDoor", "Attic", "BathRoom", "Kitchen", "OutsideGate", "HallWay" };
@@ -29,10 +26,7 @@ const float NoAlarmHiMoveDetect = 2000.0F;
 // Создать объект программного последовательного порта для связи с SIM900
 // Tx и Rx SIM900 подключены к выводам 7 и 8 Arduino
 SoftwareSerial mySerial(7, 8);
-// создаём объект класса DHT
-// передаём номер пина к которому подключён датчик и тип датчика
-// типы сенсоров: DHT11, DHT21, DHT22
-DHT dht(4, DHT11);
+
 uint32_t timer = 0;
 
 
@@ -58,16 +52,17 @@ bool Armed = false;
 TARSensor Sensors[SENSORSCOUNT] = {
   //  Analog inputs
   // Name Placement Digital Unit Period Pin LowValue HiValue
-  TARSensor("Knock0", 0, stAnalog, "", 100, A0, 0.0F, NoAlarmHiMoveDetect, Armed),
-  TARSensor("MoveDetect0", 0, stAnalog, "", 100, A1, 0.0F, NoAlarmHiMoveDetect, Armed),
-  TARSensor("Temperature0", 0, stAnalog, "C", 100, A2, 20.0F, 12.0F, true),//25
-  TARSensor("KeyBoard0", 0, stAnalog, "", 100, A3, 0.0F, 1024.0F, true),
-  //TARSensor("Sound0", 0, stAnalog, "dB", 100, A4, 0.0F, 850.0F),
-  //TARSensor("Fire0", 0, stAnalog, "", 100, A5, 0.0F, 700.0F),
-  //
-  //TARSensor("Temperature1", 0, stTemperature, "C", 5000, 4, 19.0F, 26.0F),
-  //TARSensor("Humidity0", 0, stDHTHumidity, "%", 5000, 4, 10.0F, 80.0F)
+  TARSensor("Knock0", 0, stAnalog, "", 0, A0, 0.0F, NoAlarmHiMoveDetect, Armed),
+  TARSensor("Move0", 0, stAnalog, "", 00, A1, 0.0F, NoAlarmHiMoveDetect, Armed),
+  TARSensor("Temp0", 0, stAnalog, "C", 00, A2, 18.0F, 30.0F, true),//25
+  TARSensor("---", 0, stAnalog, "", 00, A3, 0.0F, 1024.0F, true),
+  TARSensor("Sound0", 0, stAnalog, "dB", 00, A4, 0.0F, 850.0F, true),
+  TARSensor("Fire0", 0, stAnalog, "", 00, A5, 0.0F, 700.0F, true),
   //  Digital inputs
+  TARSensor("Temp", 0, stTemperature, "C", 500, 4, 15.0F, 32.0F, true),
+  TARSensor("Humidity0", 0, stDHTHumidity, "%", 500, 4, 10.0F, 80.0F, true),
+  TARSensor("Ligting0", 0, stDigital, "", 0, 2, 0.0F, 1.0F, true),
+
 
 
   //  // 2 connect & correct
@@ -124,7 +119,7 @@ void InitSMSModem()
 void setup()
 {
   Serial.begin(BAUD);//9600
-  dht.begin();
+
   while (!Serial)
   {
     // wait for serial port to connect.
@@ -132,31 +127,32 @@ void setup()
 
   InitSMSModem();
 
-
-
-
   // Actuators
   //  for (int i = 0; i < ACTUATORSCOUNT; i++)
   //    Actuators[i] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
 
 
-  Sensors[0].Read = ARAnalogSensorRead;
-  Sensors[1].Read = ARAnalogSensorRead;
-  Sensors[2].Read = ARAnalogTemperatureSensorRead;
-  Sensors[3].Read = ARAnalogSensorRead;
-  //  Sensors[4].Read = ARAnalogSensorRead;
-  //  Sensors[5].Read = ARAnalogSensorRead;
-  //  Sensors[6].Read = getTemperature;
-  //  Sensors[7].Read = getHumidity;
+
+
+  Sensors[0].onRead = ARAnalogSensorRead;
+  Sensors[1].onRead = ARAnalogSensorRead;
+  Sensors[2].onRead = ARAnalogTemperatureSensorRead;
+  Sensors[3].onRead = ARAnalogSensorRead;
+  Sensors[4].onRead = ARAnalogSensorRead;
+  Sensors[5].onRead = ARAnalogSensorRead;
+  Sensors[6].onRead = DHTTemperatureRead;
+  Sensors[7].onRead = DHTHumidityRead;
+  Sensors[8].onRead = ARDigitalSensorRead;
 
   Sensors[0].onHi = Alarm;
   Sensors[1].onHi = Alarm;
   Sensors[2].onHi = Alarm;
   Sensors[3].onHi = Alarm;
-  //  Sensors[4].onHi = Alarm;
-  //  Sensors[5].onHi = Alarm;
-  //  Sensors[6].onHi = Alarm;
-  //  Sensors[7].onHi = Alarm;
+  Sensors[4].onHi = Alarm;
+  Sensors[5].onHi = Alarm;
+  Sensors[6].onHi = Alarm;
+  Sensors[7].onHi = Alarm;
+  Sensors[8].onHi = Alarm;
 
   //Sensors[0].onLow = Alarm;
   //Sensors[1].onLow = Alarm;
@@ -167,30 +163,22 @@ void setup()
   //Sensors[6].onLow = Alarm;
   //Sensors[7].onLow = Alarm;
 
-
-
-
-
 }
 
 void loop()
 {
+  //Serial.println(getTemperature(Sensors[0]));
+  //Serial.println(getHumidity(Sensors[1]));
+  //Serial.println("-");
 
   for (int i = 0; i < SENSORSCOUNT; i++)
   {
-    if (Sensors[i].Read)
-    {
-      Sensors[i].Read(Sensors[i]);
-      if (Debug)
-        Serial.println(String(i) + ". " + PlacementCaptions[Sensors[i].Placement] + F(": Sensor") +
-                       Sensors[i].Name + ": " + Sensors[i].Value + Sensors[i].Unit);
-    }
+    Sensors[i].Read();
 
-    delay(100);
-    Sensors[i].CheckHi();
-    delay(100);
-    Sensors[i].CheckLow();
-    delay(100);
+    if (Debug)
+      Serial.println(String(i) + ". " + PlacementCaptions[Sensors[i].Placement] + F(": Sensor") +
+                     Sensors[i].Name + ": " + Sensors[i].Value + Sensors[i].Unit);
+    delay(1000);
   }
 
   String inputString;
@@ -212,7 +200,6 @@ void loop()
   if (mySerial.available())// Проверяем, если есть доступные данные
   {
     delay(10);                                 // Пауза
-
     while (mySerial.available()) {              // Проверяем, есть ли еще данные.
       inputString += (char)mySerial.read();                // Записываем считанный байт в массив inputString
       delay(10);
@@ -229,10 +216,15 @@ void loop()
         && (inputString.indexOf(OwnerPhoneNumber) > -1))
     {
       if (inputString.indexOf(F("DATA")) > -1) {     // Проверяем полученные данные
+        if (Armed)
+          Message = F("ARMED");
+        else
+          Message = F("DISARMED");
+        SendSMS(Message, OwnerPhoneNumber); // send SMS
+
         for (int i = 0; i < SENSORSCOUNT; i++)
         {
-          if (Sensors[i].Read)
-            Sensors[i].Read(Sensors[i]);
+          Sensors[i].Read();
           Message = String(i) + ". " + PlacementCaptions[Sensors[i].Placement] + F(": Sensor")
                     + Sensors[i].Name + ": " + Sensors[i].Value + Sensors[i].Unit;
           Serial.println(Message);
@@ -331,29 +323,29 @@ void updateSerial()
   }
 }
 
-//void SendSMS(String text, String phone)  // Процедура Отправка SMS
-//{
-//  //Serial.println(F("SMS send started"));
-//  mySerial.println("AT+CMGS=\"" + phone + "\"");
-//  delay(500);
-//  mySerial.print(text);
-//  delay(500);
-//  mySerial.print((char)26);
-//  delay(500);
-//  Serial.println(F("SMS send complete"));
-//  delay(500);
-//}
-
 void SendSMS(String text, String phone)  // Процедура Отправка SMS
 {
   //Serial.println(F("SMS send started"));
-  Serial.println("AT+CMGS=\"" + phone + "\"");
+  mySerial.println("AT+CMGS=\"" + phone + "\"");
   delay(500);
-  Serial.print(text);
+  mySerial.print(text);
+  delay(500);
+  mySerial.print((char)26);
   delay(500);
   Serial.println(F("SMS send complete"));
   delay(500);
 }
+
+//void SendSMS(String text, String phone)  // Процедура Отправка SMS
+//{
+//  //Serial.println(F("SMS send started"));
+//  Serial.println("AT+CMGS=\"" + phone + "\"");
+//  delay(500);
+//  Serial.print(text);
+//  delay(500);
+//  Serial.println(F("SMS send complete"));
+//  delay(500);
+//}
 
 
 
@@ -456,73 +448,3 @@ void Alarm(TARSensor& Sensor)
 //  Serial.println("SMS send complete");
 //  delay(2000);
 //}
-
-
-String getTemperature(TARSensor& Sensor)
-{
-  //int Period = 1000 * 2;
-  delay(Sensor.Period);
-  //if (millis() - timer >= Period) {
-  // ваше действие
-
-  // считывание данных с датчика
-  dht.read();
-  // проверяем состояние данных
-  switch (dht.getState()) {
-    // всё OK
-    case DHT_OK:
-      // выводим показания влажности и температуры
-      return String(dht.getTemperatureC());
-    // ошибка контрольной суммы
-    case DHT_ERROR_CHECKSUM:
-      Serial.println("Checksum error");
-      break;
-    // превышение времени ожидания
-    case DHT_ERROR_TIMEOUT:
-      Serial.println("Time out error");
-      break;
-    // данных нет, датчик не реагирует или отсутствует
-    case DHT_ERROR_NO_REPLY:
-      Serial.println("Sensor not connected");
-      break;
-  }
-  //  timer += Period;
-  //}
-  delay(Sensor.Period);
-}
-
-String getHumidity(TARSensor& Sensor)
-{
-
-  //int Period = 1000 * 2;
-
-  delay(Sensor.Period);
-  //if (millis() - timer >= Period) {
-  // ваше действие
-
-  // считывание данных с датчика
-  dht.read();
-  // проверяем состояние данных
-  switch (dht.getState()) {
-    // всё OK
-    case DHT_OK:
-      // выводим показания влажности и температуры
-      return String(dht.getHumidity());
-      break;
-    // ошибка контрольной суммы
-    case DHT_ERROR_CHECKSUM:
-      Serial.println(F("Checksum error"));
-      break;
-    // превышение времени ожидания
-    case DHT_ERROR_TIMEOUT:
-      Serial.println(F("Time out error"));
-      break;
-    // данных нет, датчик не реагирует или отсутствует
-    case DHT_ERROR_NO_REPLY:
-      Serial.println(F("Sensor not connected"));
-      break;
-  }
-  //timer += Period;
-  //}
-  delay(Sensor.Period);
-}
