@@ -4,6 +4,16 @@
 // asteron-2007@mail.ru
 //+7 910 553-46-37
 
+//2 do
+// - gprs
+// - Alarm
+// - Sensors
+// - log (sd card)
+// - comunication
+// - Macros DEBUG
+// - NN
+// - 
+
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 #include  <Wire.h>
@@ -19,8 +29,8 @@ const int SENSORSCOUNT = 9;//50;
 const String PlacementCaptions[]  = // an array of placement captions in smart home
 { "Hall", "Storage", "BedRoom", "OutDoor", "Attic", "BathRoom", "Kitchen", "OutsideGate", "HallWay" };
 
-const float AlarmHiMoveDetect = 200.0F;
-const float NoAlarmHiMoveDetect = 2000.0F;
+//const float AlarmHiMoveDetect = 200.0F;
+//const float NoAlarmHiMoveDetect = 2000.0F;
 
 //  Variables
 // Создать объект программного последовательного порта для связи с SIM900
@@ -52,15 +62,15 @@ bool Armed = false;
 TARSensor Sensors[SENSORSCOUNT] = {
   //  Analog inputs
   // Name Placement Digital Unit Period Pin LowValue HiValue
-  TARSensor("Knock0", 0, stAnalog, "", 0, A0, 0.0F, NoAlarmHiMoveDetect, Armed),
-  TARSensor("Move0", 0, stAnalog, "", 00, A1, 0.0F, NoAlarmHiMoveDetect, Armed),
+  TARSensor("Knock0", 0, stAnalog, "", 0, A0, -1.0F, 200.0F, Armed),
+  TARSensor("Move0", 0, stAnalog, "", 00, A1, -1.0F, 200.0F, Armed),
   TARSensor("Temp0", 0, stAnalog, "C", 00, A2, 18.0F, 30.0F, true),//25
   TARSensor("---", 0, stAnalog, "", 00, A3, 0.0F, 1024.0F, true),
   TARSensor("Sound0", 0, stAnalog, "dB", 00, A4, 0.0F, 850.0F, true),
   TARSensor("Fire0", 0, stAnalog, "", 00, A5, 0.0F, 700.0F, true),
   //  Digital inputs
   TARSensor("Temp", 0, stTemperature, "C", 500, 4, 15.0F, 32.0F, true),
-  TARSensor("Humidity0", 0, stDHTHumidity, "%", 500, 4, 10.0F, 80.0F, true),
+  TARSensor("Humidity0", 0, stDHTHumidity, "%", 500, 4, 40.0F, 70.0F, true),
   TARSensor("Ligting0", 0, stDigital, "", 0, 2, 0.0F, 1.0F, true),
 
 
@@ -160,7 +170,7 @@ void setup()
   //Sensors[3].onLow = Alarm;
   //Sensors[4].onLow = Alarm;
   //Sensors[5].onLow = Alarm;
-  //Sensors[6].onLow = Alarm;
+  Sensors[6].onLow = Alarm;
   //Sensors[7].onLow = Alarm;
 
 }
@@ -236,8 +246,13 @@ void loop()
       //постановка на охрну
       if (inputString.indexOf(F("ARM")) > -1) {     // Проверяем полученные данные
         Armed = true;
-        Sensors[0].HiValue = AlarmHiMoveDetect;
-        Sensors[1].HiValue = AlarmHiMoveDetect;
+        //Sensors[0].HiValue = AlarmHiMoveDetect;
+        //Sensors[1].HiValue = AlarmHiMoveDetect;
+
+
+        for (int i = 0; i < SENSORSCOUNT; i++)
+          Sensors[i].Armed = true;
+
         Message = F("ARMED");
         Serial.println(Message);
         SendSMS(Message, OwnerPhoneNumber); // send SMS
@@ -246,8 +261,8 @@ void loop()
       // снятие с охраны
       if (inputString.indexOf(F("FREE")) > -1) {     // Проверяем полученные данные
         Armed = false;
-        Sensors[0].HiValue = NoAlarmHiMoveDetect;
-        Sensors[1].HiValue = NoAlarmHiMoveDetect;
+        //Sensors[0].HiValue = NoAlarmHiMoveDetect;
+        //Sensors[1].HiValue = NoAlarmHiMoveDetect;
         Message = F("DISARMED");
         Serial.println(Message);
         SendSMS(Message, OwnerPhoneNumber); // send SMS
@@ -261,22 +276,43 @@ void loop()
         SendSMS(Message, OwnerPhoneNumber); // send SMS
         delay(1000);
       }
+      // STATUS
+      if (inputString.indexOf(F("STATUS")) > -1) {     // Проверяем полученные данные
+
+        if (Armed)
+          Message = F("ARMED");
+        else
+          Message = F("DISARMED");
+        SendSMS(Message, OwnerPhoneNumber); // send SMS
+
+        for (int i = 0; i < SENSORSCOUNT; i++)
+        {
+          Sensors[i].Read();
+          Message = String(i) + ". " + PlacementCaptions[Sensors[i].Placement] + F(": Sensor")
+                    + Sensors[i].Name + ": " + Sensors[i].Value + Sensors[i].Unit ;
+          if (Sensors[i].LowAlarmed)
+            Message += F(" LowAlarm");
+          if (Sensors[i].HiAlarmed)
+            Message += F(" HiAlarm");
+          if (Sensors[i].Armed)
+            Message += F(" IsArmed");
+          else Message += F(" IsDisArmed");
+          Serial.println(Message);
+          SendSMS(Message, OwnerPhoneNumber); // send SMS
+          delay(1000);
+        }
+      }
+
+      delay(50);
+      if (inputString.indexOf(F("OK")) == -1) {
+        mySerial.println(F("AT+CMGD=2,4"));
+        delay(1000);
+      }
+      inputString = "";
     }
 
-    delay(50);
-    if (inputString.indexOf(F("OK")) == -1) {
-      mySerial.println(F("AT+CMGD=2,4"));
-      delay(1000);
-    }
-    inputString = "";
   }
-
-
-
-
-
 }
-
 
 
 
@@ -322,7 +358,7 @@ void updateSerial()
     Serial.write(mySerial.read());
   }
 }
-
+//
 void SendSMS(String text, String phone)  // Процедура Отправка SMS
 {
   //Serial.println(F("SMS send started"));
@@ -350,7 +386,7 @@ void SendSMS(String text, String phone)  // Процедура Отправка 
 
 
 
-void Alarm(TARSensor& Sensor)
+void Alarm(TARSensor & Sensor)
 {
   SendSMS(String(PlacementCaptions[Sensor.Placement] + F(": Sensor") + Sensor.Name + ": " +
                  Sensor.Value + Sensor.Unit  + "\n"), OwnerPhoneNumber);
