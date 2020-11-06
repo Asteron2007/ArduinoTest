@@ -4,30 +4,67 @@
 // asteron-2007@mail.ru
 //+7 910 553-46-37
 
-//2 do
+//2 DO
 // - gprs
+//   - Email
+//   - on server AG
 // - Alarm
+//   - time
+//   - Relay
+//   - servo
+//   - beeper
 // - Sensors
-// - log (sd card)
+// - logs (sd card)
 // - comunication
-// - Macros DEBUG
+// - Macros by ProcessorType
+// - Actuators
+//   - hit light
+//   - humidity
+//   - Close Valve
+//   - Heat/ vent
+// - Video
+// - Shedule
+// - clean code - Release
+// - optimize
+// - AI onboard -> evolution
+// timer on Alarm
+// reset Alarms
+// Android applicaition (SmartHome)
+// Arduino Mega
+// Arduino Duo
 // - NN
-// - 
+// - Reboot
 
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 #include  <Wire.h>
 #include "lib\ARSensors\ARSensors.h"
+#include "lib\ARActuators\ARActuators.h"
+
+#define DEBUG = true;// true - debug version/ false - release version
 
 // Constants
 const  String OwnerPhoneNumber  = "+79105544321";
-const bool Debug = false;
+//const bool Debug = false;
 const long BAUD = 9600;
 
-const int SENSORSCOUNT = 9;//50;
+const byte SENSORSCOUNT = 9;//50;
 //const int ACTUATORSCOUNT = 8;//
-const String PlacementCaptions[]  = // an array of placement captions in smart home
+const char* SmartHomeRoomsCaptions[]  = // an array of placement captions in smart home
 { "Hall", "Storage", "BedRoom", "OutDoor", "Attic", "BathRoom", "Kitchen", "OutsideGate", "HallWay" };
+const byte CommandCount = 7;
+const char* CommandsList[CommandCount]  = // an array list of commads for smart home
+{ "ARM", "FREE", "DATA", "RESET", "HELP", "STATUS", "ALARMS_RESET" };
+
+enum TARSmartHomeCommads {
+  shARM = 0,
+  shFREE = 1,
+  shDATA = 2,
+  shRESET = 3,
+  shHELP = 4,
+  shSTATUS  = 5,
+  shALARMS_RESET = 6,
+};
 
 //const float AlarmHiMoveDetect = 200.0F;
 //const float NoAlarmHiMoveDetect = 2000.0F;
@@ -42,18 +79,6 @@ uint32_t timer = 0;
 
 
 bool Armed = false;
-
-//bool KnockSensorAlarm = false;
-//bool MoveDetectAlarm = false;
-//bool LowTemperatureAlarm = false;
-//bool HiTemperatureAlarm = false;
-//bool SoundSensorAlarm = false;
-//bool FireSensorAlarm = false;
-//bool LowHumidityAlarm = false;
-//bool HiHumidityAlarm = false;
-
-
-
 
 
 
@@ -98,9 +123,15 @@ TARSensor Sensors[SENSORSCOUNT] = {
 
 
 
-
+const byte ACTUATORSCOUNT = 4;
 // 2 correct
-//TARSensor Actuators[ACTUATORSCOUNT];
+TARActuator Actuators[ACTUATORSCOUNT] = {
+  //Name,  Placement,  ActuatorType, Period, Pin, LowValue, HiValue,  Active
+  TARActuator("Vent0", 0, atAnalog, 0, 111A0, -1.0F, 200.0F, true),
+  TARActuator("Ligth0", 0, atDigital, 0, 111A0, -1.0F, 200.0F, true),
+  TARActuator("FireBeep0", 0, atDigital, 0, 111A0, -1.0F, 200.0F, true),
+  TARActuator("Valve0", 0, atAnalog, 0, 1111A0, -1.0F, 200.0F, true),
+};
 
 void InitSMSModem()
 {
@@ -185,10 +216,15 @@ void loop()
   {
     Sensors[i].Read();
 
-    if (Debug)
-      Serial.println(String(i) + ". " + PlacementCaptions[Sensors[i].Placement] + F(": Sensor") +
-                     Sensors[i].Name + ": " + Sensors[i].Value + Sensors[i].Unit);
+#ifdef DEBUG
+    Serial.println(String(i) + ". " + SmartHomeRoomsCaptions[Sensors[i].Placement] + F(": Sensor") +
+                   Sensors[i].Name + ": " + Sensors[i].Value + Sensors[i].Unit);
+#else
+
+#endif
+
     delay(1000);
+
   }
 
   String inputString;
@@ -217,8 +253,12 @@ void loop()
 
     //while ((inputString.indexOf(F("+CIEV:")) > -1) || (inputString.indexOf(F("+CMT:")) > -1));
     delay(100);                               // Пауза
-    if (Debug)
-      Serial.println(inputString);
+#ifdef DEBUG
+    Serial.println(inputString);
+#else
+
+#endif
+
     // Отправка в "Мониторинг порта" считанные данные
     inputString.toUpperCase();                  // Меняем все буквы на заглавные
 
@@ -235,50 +275,45 @@ void loop()
         for (int i = 0; i < SENSORSCOUNT; i++)
         {
           Sensors[i].Read();
-          Message = String(i) + ". " + PlacementCaptions[Sensors[i].Placement] + F(": Sensor")
+          Message = String(i) + ". " + SmartHomeRoomsCaptions[Sensors[i].Placement] + F(": Sensor")
                     + Sensors[i].Name + ": " + Sensors[i].Value + Sensors[i].Unit;
           Serial.println(Message);
           SendSMS(Message, OwnerPhoneNumber); // send SMS
-          delay(1000);
+          // delay(1000);
         }
 
       }
       //постановка на охрну
       if (inputString.indexOf(F("ARM")) > -1) {     // Проверяем полученные данные
         Armed = true;
-        //Sensors[0].HiValue = AlarmHiMoveDetect;
-        //Sensors[1].HiValue = AlarmHiMoveDetect;
-
-
         for (int i = 0; i < SENSORSCOUNT; i++)
-          Sensors[i].Armed = true;
+          Sensors[i].Armed = Armed;
 
         Message = F("ARMED");
         Serial.println(Message);
         SendSMS(Message, OwnerPhoneNumber); // send SMS
-        delay(1000);
       }
       // снятие с охраны
       if (inputString.indexOf(F("FREE")) > -1) {     // Проверяем полученные данные
         Armed = false;
-        //Sensors[0].HiValue = NoAlarmHiMoveDetect;
-        //Sensors[1].HiValue = NoAlarmHiMoveDetect;
+        Sensors[0].Armed = Armed;
+        Sensors[1].Armed = Armed;
         Message = F("DISARMED");
         Serial.println(Message);
         SendSMS(Message, OwnerPhoneNumber); // send SMS
-        delay(1000);
       }
-      // снятие с охраны
+      // Show Commands List
       if (inputString.indexOf(F("HELP")) > -1) {     // Проверяем полученные данные
-
-        Message = F("ARM\nFREE\nDATA\nRESET\nHELP\nSTATUS\n");
+        Message = "";
+        for (int i = 0; i < CommandCount; i++)
+        {
+          Message += String(CommandsList[i]) + "\n";
+        }
         Serial.println(Message);
         SendSMS(Message, OwnerPhoneNumber); // send SMS
-        delay(1000);
       }
       // STATUS
       if (inputString.indexOf(F("STATUS")) > -1) {     // Проверяем полученные данные
-
         if (Armed)
           Message = F("ARMED");
         else
@@ -288,7 +323,7 @@ void loop()
         for (int i = 0; i < SENSORSCOUNT; i++)
         {
           Sensors[i].Read();
-          Message = String(i) + ". " + PlacementCaptions[Sensors[i].Placement] + F(": Sensor")
+          Message = String(i) + ". " + SmartHomeRoomsCaptions[Sensors[i].Placement] + F(": Sensor")
                     + Sensors[i].Name + ": " + Sensors[i].Value + Sensors[i].Unit ;
           if (Sensors[i].LowAlarmed)
             Message += F(" LowAlarm");
@@ -299,11 +334,21 @@ void loop()
           else Message += F(" IsDisArmed");
           Serial.println(Message);
           SendSMS(Message, OwnerPhoneNumber); // send SMS
-          delay(1000);
+        }
+      }
+      // Alarm reset
+      if (inputString.indexOf(CommandsList[shALARMS_RESET]) > -1) {     // Проверяем полученные данные
+        for (int i = 0; i < SENSORSCOUNT; i++)
+        {
+          Sensors[i].LowAlarmed = false;
+          Sensors[i].HiAlarmed = false;
+          Message = F("Alarms reseted");
+          Serial.println(Message);
+          SendSMS(Message, OwnerPhoneNumber); // send SMS
         }
       }
 
-      delay(50);
+      delay(5000);
       if (inputString.indexOf(F("OK")) == -1) {
         mySerial.println(F("AT+CMGD=2,4"));
         delay(1000);
@@ -338,6 +383,7 @@ void SIM900Restart()
   delay(2000);
   digitalWrite(10, LOW);
   delay(3000);
+  resetFunc(); //вызываем reset
 }
 
 
@@ -361,37 +407,31 @@ void updateSerial()
 //
 void SendSMS(String text, String phone)  // Процедура Отправка SMS
 {
-  //Serial.println(F("SMS send started"));
-  mySerial.println("AT+CMGS=\"" + phone + "\"");
+#ifdef DEBUG
+  Serial.println("AT+CMGS=\"" + phone + "\"");
   delay(500);
-  mySerial.print(text);
-  delay(500);
-  mySerial.print((char)26);
+  Serial.print(text);
   delay(500);
   Serial.println(F("SMS send complete"));
   delay(500);
+#else
+  mySerial.println("AT+CMGS=\"" + phone + "\"");
+  mySerial.print(text);
+  Serial.println(F("SMS send complete"));
+#endif
 }
-
-//void SendSMS(String text, String phone)  // Процедура Отправка SMS
-//{
-//  //Serial.println(F("SMS send started"));
-//  Serial.println("AT+CMGS=\"" + phone + "\"");
-//  delay(500);
-//  Serial.print(text);
-//  delay(500);
-//  Serial.println(F("SMS send complete"));
-//  delay(500);
-//}
-
-
-
 
 void Alarm(TARSensor & Sensor)
 {
-  SendSMS(String(PlacementCaptions[Sensor.Placement] + F(": Sensor") + Sensor.Name + ": " +
-                 Sensor.Value + Sensor.Unit  + "\n"), OwnerPhoneNumber);
-  Serial.println("ALARM: " + PlacementCaptions[Sensor.Placement] + F(": Sensor") + Sensor.Name + ": " +
-                 Sensor.Value + Sensor.Unit + "\n");
+  String Message = String (SmartHomeRoomsCaptions[Sensor.Placement]) + F(": Sensor") + String(Sensor.Name + ": " +
+                   Sensor.Value + Sensor.Unit  + "\n");
+
+#ifdef DEBUG
+  SendSMS("ALARM: " + Message, OwnerPhoneNumber);
+  Serial.println("ALARM: " + Message);
+#else
+  SendSMS("ALARM: " + Message, OwnerPhoneNumber);
+#endif
 }
 
 

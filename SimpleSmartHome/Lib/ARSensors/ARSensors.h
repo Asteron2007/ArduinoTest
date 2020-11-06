@@ -79,6 +79,7 @@ class TARSensor
     bool HiAlarmed;
     bool Armed;
     byte Pin;
+    String Value;
     void (*onLow)(TARSensor& Sensor);
     void (*onHi)(TARSensor& Sensor);
     //String (*onRead)(TARSensor& Sensor);
@@ -108,29 +109,13 @@ class TARSensor
       if (Armed)
         if (!LowAlarmed)
           if (LowValue >= Value.toFloat())
-          {            
+          {
             LowAlarmed = true;
             if (onLow)
               onLow(*this);
           }
           else LowAlarmed = false;
     }
-
-    String Value;
-    //    bool Connected() //
-    //    {
-    //      bool Connected = true;
-    //      if (Connected)
-    //        ConnectedStatus = F("Connected");
-    //      else
-    //        ConnectedStatus = F("Disconnected");
-    //      return Connected;
-    //    }
-    //    String ConnectedStatus;
-    //    String ToString()
-    //    {
-    //      return "";
-    //    }
 
   private:
 
@@ -263,4 +248,7 @@ void DHTHumidityRead(TARSensor& Sensor)
   }
   //timer += Period;
   //}
+
 }
+
+void(* resetFunc) (void) = 0;//объявляем функцию reset с адресом 0
