@@ -62,7 +62,8 @@ class TARSensor
       this->HiAlarmed = false;
       this-> Armed = Armed;
       this->Pin = Pin;
-      pinMode(this->Pin, INPUT);
+      pinMode(this->Pin, INPUT_PULLUP);
+      //pinMode(this->Pin, INPUT);
       onLow = NULL;
       onHi = NULL;
       onRead = NULL;
@@ -155,13 +156,13 @@ void ARDigitalSensorRead(TARSensor& Sensor)
 
 void ARAnalogTemperatureSensorRead(TARSensor& Sensor)
 { //ky-013
-  double Temp;
-  Temp = log(((10240000 / readMean(Sensor.Pin, 20)) - 10000));
-  Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp )) * Temp ); // Уравнение Стейнхарта-Харта
-  Temp = Temp - 273.15; // Кельвин -> Цельсий
-
-  Sensor.Value = String(Temp);
-  //Sensor.Value = String((readMean(Sensor.Pin, 30) * 5.0 / 1024 + 0.5) * 100 - 273.15);
+  //  double Temp;
+  //  Temp = log(((10240000 / readMean(Sensor.Pin, 20)) - 10000));
+  //  Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp )) * Temp ); // Уравнение Стейнхарта-Харта
+  //  Temp = Temp - 273.15; // Кельвин -> Цельсий
+  //
+  //  Sensor.Value = String(Temp);
+  Sensor.Value = String((readMean(Sensor.Pin, 20) * 5.0 / 1024 * 1.1 /*+ 0.5*/) * 100 - 10 - 273.15);
   delay(Sensor.Period);
   return ;//Sensor.Value;
 }
@@ -252,3 +253,7 @@ void DHTHumidityRead(TARSensor& Sensor)
 }
 
 void(* resetFunc) (void) = 0;//объявляем функцию reset с адресом 0
+
+void softReset() {
+  asm volatile ("jmp 0");
+}

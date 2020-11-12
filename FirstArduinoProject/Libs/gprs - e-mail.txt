@@ -27,3 +27,66 @@ AT+SMTPSEND - Отправка письма.
 64 - время сессии истекло
 67 - ошибка аутентификации
 AT+SAPBR=0,1 - разорвать GPRS соединение
+
+
+Для отправки данных на сервер нужно отправить следующие команды:
+
+AT+SAPBR=1,1 – открытие Carrier.
+
+Следующие три команды связаны с установкой настроек подключения к сети.
+
+AT+SAPBR=3,1,\”APN\”,\”internet.mts.ru\” – выбор оператора mts, имя точки доступа.
+
+AT+SAPBR=3,1,\”USER\”,\” mts \” – выбор пользователя mts.
+
+AT+SAPBR=3,1,\”PWD\”,\” mts \”
+
+AT+SAPBR=1,1 – установка соединения.
+
+AT+HTTPINIT – инициализация http.
+
+AT+HTTPPARA=”URL”, – URL адрес.
+
+AT+HTTPREAD – ожидание ответа.
+
+AT+HTTPTERM – остановка http.
+
+
+
+
+
+AT+CIPSHUT : закрыть TCP порт, что означает прекращение всех соединений 
+AT+CGATT? : проверка имеет ли SIM карта интернет соединение или нет 
+AT+CSTT = "APN","userName","Pass" : соединение с интернет 
+(ex; AT+CSTT="airtelgprs.com","","") 
+AT+CIICR : соединение с беспроводной сетью. Проверяемая SIM карта должна иметь предоплаченный объем данных или положительный баланс
+AT+CIFSR : получить IP (иногда без этой команды GSM не будет работать поэтому желательно ее использовать)
+AT+CIPSTART = ”TCP”,”SERVER IP”,”PORT” : эта команда используется для создания TCP соединения с сервером который мы прописываем в поле SERVER IP
+AT+CIPSEND : эта команда используется для передачи данных на сервер. After input, this command server asks for data.
+
+
+APN: internet.mts.ru
+Username: mts
+Password: mts
+
+
+
+
+
+
+void initGSM()
+{
+  connectGSM("AT","OK");
+  connectGSM("ATE1","OK");
+  connectGSM("AT+CPIN?","READY");
+}
+void initGPRS()
+{
+  connectGSM("AT+CIPSHUT","OK");
+  connectGSM("AT+CGATT=1","OK");
+  connectGSM("AT+CSTT=\"airtelgprs.com\",\"\",\"\"","OK");
+  connectGSM("AT+CIICR","OK");
+  delay(1000);
+  Serial1.println("AT+CIFSR");
+  delay(1000);
+}

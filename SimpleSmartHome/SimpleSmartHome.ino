@@ -1,10 +1,15 @@
+
 // SimpleSmartHome v 1.0
 // Asteron Robotics Evolution
 // http://asteron24.ru/
 // asteron-2007@mail.ru
 //+7 910 553-46-37
 
+// based on Arduino MEGA
+
+
 //2 DO
+// - RING
 // - gprs
 //   - Email
 //   - on server AG
@@ -22,6 +27,7 @@
 //   - humidity
 //   - Close Valve
 //   - Heat/ vent
+//   - beeper
 // - Video
 // - Shedule
 // - clean code - Release
@@ -29,7 +35,7 @@
 // - AI onboard -> evolution
 // timer on Alarm
 // reset Alarms
-// Android applicaition (SmartHome)
+// Android application (SmartHome)
 // Arduino Mega
 // Arduino Duo
 // - NN
@@ -42,19 +48,35 @@
 #include "lib\ARActuators\ARActuators.h"
 
 #define DEBUG = true;// true - debug version/ false - release version
+//#define PLATFORM_UNO;// true - debug version/ false - release version
+#define PLATFORM_MEGA = true;// true - debug version/ false - release version
+
+#define PERIOD 1000*60*60 // 1 hour
+uint32_t timer = 0;
+
 
 // Constants
-const  String OwnerPhoneNumber  = "+79105544321";
-//const bool Debug = false;
+const char* OwnerPhoneNumber  = "+79105544321";
 const long BAUD = 9600;
 
-const byte SENSORSCOUNT = 9;//50;
-//const int ACTUATORSCOUNT = 8;//
-const char* SmartHomeRoomsCaptions[]  = // an array of placement captions in smart home
-{ "Hall", "Storage", "BedRoom", "OutDoor", "Attic", "BathRoom", "Kitchen", "OutsideGate", "HallWay" };
+
+
 const byte CommandCount = 7;
 const char* CommandsList[CommandCount]  = // an array list of commads for smart home
 { "ARM", "FREE", "DATA", "RESET", "HELP", "STATUS", "ALARMS_RESET" };
+//const byte CommandCount = 7;
+//const char Arr0[] = "ARM";
+//const char Arr1[] = "FREE";
+//const char Arr2[] = "DATA";
+//const char Arr3[] = "RESET";
+//const char Arr4[] = "HELP";
+//const char Arr5[] = "STATUS";
+//const char Arr6[] = "ALARMS_RESET";
+//
+//
+//const char* const CommandsList[CommandCount] PROGMEM = // an array list of commads for smart home
+//{ Arr0, Arr1, Arr2, Arr3, Arr4, Arr5, Arr6 };
+
 
 enum TARSmartHomeCommads {
   shARM = 0,
@@ -71,41 +93,48 @@ enum TARSmartHomeCommads {
 
 //  Variables
 // Создать объект программного последовательного порта для связи с SIM900
-// Tx и Rx SIM900 подключены к выводам 7 и 8 Arduino
+// Tx и Rx SIM900 подключены к выводам 7 и 8 ArduinoUNO (10,11 for Arduino Mega)
+
+#define PLATFORM_MEGA = true;// true - debug version/ false - release version
+
+#ifdef PLATFORM_UNO
 SoftwareSerial mySerial(7, 8);
+#else
 
-uint32_t timer = 0;
+#ifdef PLATFORM_MEGA
+SoftwareSerial mySerial(10, 11); //RX/TX
+#else
+#endif
 
+
+#endif
 
 
 bool Armed = false;
-
-
+const byte ROOMSCOUNT = 9;//
+const char* SmartHomeRoomsCaptions[ROOMSCOUNT]  = // an array of placement captions in smart home
+{ "Hall", "Storage", "BedRoom", "OutDoor", "Attic", "BathRoom", "Kitchen", "OutsideGate", "HallWay" };
 
 // Sensors
-//
+const byte SENSORSCOUNT = 11;//50;
 TARSensor Sensors[SENSORSCOUNT] = {
   //  Analog inputs
   // Name Placement Digital Unit Period Pin LowValue HiValue
   TARSensor("Knock0", 0, stAnalog, "", 0, A0, -1.0F, 200.0F, Armed),
   TARSensor("Move0", 0, stAnalog, "", 00, A1, -1.0F, 200.0F, Armed),
-  TARSensor("Temp0", 0, stAnalog, "C", 00, A2, 18.0F, 30.0F, true),//25
-  TARSensor("---", 0, stAnalog, "", 00, A3, 0.0F, 1024.0F, true),
+  TARSensor("Temp0", 3, stAnalog, "C", 00, A2, 18.0F, 30.0F, true),// outdoor
+  TARSensor("---", 0, stAnalog, "", 00, A3, 0.0F, 1024.0F, true),//----------------------------------
   TARSensor("Sound0", 0, stAnalog, "dB", 00, A4, 0.0F, 850.0F, true),
   TARSensor("Fire0", 0, stAnalog, "", 00, A5, 0.0F, 700.0F, true),
   //  Digital inputs
-  TARSensor("Temp", 0, stTemperature, "C", 500, 4, 15.0F, 32.0F, true),
-  TARSensor("Humidity0", 0, stDHTHumidity, "%", 500, 4, 40.0F, 70.0F, true),
-  TARSensor("Ligting0", 0, stDigital, "", 0, 2, 0.0F, 1.0F, true),
-
-
-
+  TARSensor("Temp", 0, stTemperature, "C", 500, 4, 15.0F, 32.0F, true), // hall
+  TARSensor("Humidity0", 0, stDHTHumidity, "%", 500, 4, 40.0F, 70.0F, true), // hall
+  TARSensor("Ligting0", 3, stDigital, "", 0, 2, 0.0F, 1.0F, true),
+  TARSensor("Gercon0", 0, stDigital, "", 0, 5, 0.0F, 1.0F, true), // hall
+  TARSensor("Gercon1", 1, stDigital, "", 0, 6, 0.0F, 1.0F, true), // storage
   //  // 2 connect & correct
   //  // Smoke
-  // GerconSensor
   //  Sensors[8] = new TARSensor("SmokeSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-  //  // Lighting
-  //  Sensors[9] = new TARSensor("LightingSensor", PlacementCaptions[1], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
   //  // Wattering влажность почвы
   //  Sensors[10] = new TARSensor("WatteringSensor", PlacementCaptions[0], true, "", 100, 1, 0.0F, 1.0F,  0.0F, 1.0F);
   //  // Rain влажность почвы
@@ -116,65 +145,10 @@ TARSensor Sensors[SENSORSCOUNT] = {
   //  Sensors[13] = new TARSensor("PhotoResistor", PlacementCaptions[0], true, "", 100, 4, 0.0F, 1.0F,  0.0F, 1.0F);
   //  // OutDoors temperature
   //  Sensors[49] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-
 };
 
-
-
-
-
-const byte ACTUATORSCOUNT = 4;
-// 2 correct
-TARActuator Actuators[ACTUATORSCOUNT] = {
-  //Name,  Placement,  ActuatorType, Period, Pin, LowValue, HiValue,  Active
-  TARActuator("Vent0", 0, atAnalog, 0, 111A0, -1.0F, 200.0F, true),
-  TARActuator("Ligth0", 0, atDigital, 0, 111A0, -1.0F, 200.0F, true),
-  TARActuator("FireBeep0", 0, atDigital, 0, 111A0, -1.0F, 200.0F, true),
-  TARActuator("Valve0", 0, atAnalog, 0, 1111A0, -1.0F, 200.0F, true),
-};
-
-void InitSMSModem()
+void InitSensors()
 {
-  // Начать последовательную связь Arduino и SIM900
-  SIM900power();
-  mySerial.begin(BAUD);//9600
-  Serial.println(F("Initializing..."));
-
-  while (!mySerial.available()) {           // Зацикливаем и ждем инициализацию SIM800L
-    mySerial.println("AT");                  // Отправка команды AT
-    delay(1000);                             // Пауза
-    Serial.println(F("Connecting..."));         // Печатаем текст
-  }
-  mySerial.println(F("AT+CSCS=\"GSM\""));
-  delay(1000);
-  Serial.println(F("Connected!"));            // Печатаем текст
-  mySerial.println(F("AT+CMGF=1"));           // Отправка команды AT+CMGF=1
-  delay(1000);                             // Пауза
-  mySerial.println(F("AT+CNMI=1,2,0,0,0"));   // Отправка команды AT+CNMI=1,2,0,0,0
-  delay(1000);                             // Пауза
-  mySerial.println(F("AT+CMGL=\"REC UNREAD\""));
-  delay(3000);
-  SendSMS(F("Ready"), OwnerPhoneNumber);
-}
-
-void setup()
-{
-  Serial.begin(BAUD);//9600
-
-  while (!Serial)
-  {
-    // wait for serial port to connect.
-  }
-
-  InitSMSModem();
-
-  // Actuators
-  //  for (int i = 0; i < ACTUATORSCOUNT; i++)
-  //    Actuators[i] = new TARSensor("GerconSensor", PlacementCaptions[0], true, "", 100, A0, 0.0F, 1.0F,  0.0F, 1.0F);
-
-
-
-
   Sensors[0].onRead = ARAnalogSensorRead;
   Sensors[1].onRead = ARAnalogSensorRead;
   Sensors[2].onRead = ARAnalogTemperatureSensorRead;
@@ -184,6 +158,8 @@ void setup()
   Sensors[6].onRead = DHTTemperatureRead;
   Sensors[7].onRead = DHTHumidityRead;
   Sensors[8].onRead = ARDigitalSensorRead;
+  Sensors[9].onRead = ARDigitalSensorRead;
+  Sensors[10].onRead = ARDigitalSensorRead;
 
   Sensors[0].onHi = Alarm;
   Sensors[1].onHi = Alarm;
@@ -194,6 +170,8 @@ void setup()
   Sensors[6].onHi = Alarm;
   Sensors[7].onHi = Alarm;
   Sensors[8].onHi = Alarm;
+  Sensors[9].onHi = Alarm;
+  Sensors[10].onHi = Alarm;
 
   //Sensors[0].onLow = Alarm;
   //Sensors[1].onLow = Alarm;
@@ -203,15 +181,122 @@ void setup()
   //Sensors[5].onLow = Alarm;
   Sensors[6].onLow = Alarm;
   //Sensors[7].onLow = Alarm;
+}
 
+const byte ACTUATORSCOUNT = 4;
+// 2 correct
+//ШИМ: пины 2–13 и 44–46
+TARActuator Actuators[ACTUATORSCOUNT] = {
+  //Name,  Placement,  ActuatorType, Period, Pin, LowValue, HiValue,  Active
+  TARActuator("Vent0", 0, atAnalog, 0, 3, 0.0F, 1023.0F, true),
+  TARActuator("Ligth0", 0, atDigital, 0, 2, 0.0F, 1023.0F, true),
+  TARActuator("FireBeep0", 0, atDigital, 0, 13, 0.0F, 1023.0F, true),
+  TARActuator("Valve0", 0, atAnalog, 0, 44, 0.0F, 1023.0F, true),
+};
+
+void InitActuators()
+{
+  Actuators[0].onRun = ARAnalogActuatorRun;
+  Actuators[1].onRun = ARDigitalActuatorRun;
+  Actuators[2].onRun = ARDigitalActuatorRun;
+  Actuators[3].onRun = ARAnalogActuatorRun;
+  //  Actuators[4].onRun = null;
+
+}
+
+
+
+
+void setup()
+{
+  //analogReference(INTERNAL);
+  Serial.begin(BAUD);//9600
+
+  while (!Serial)
+  {
+    // wait for serial port to connect.
+  }
+
+  InitSMSModem();
+  //SendEmail("", "");
+  //delay(3000);
+  //вернуть
+  InitSensors();
+  InitActuators();
 }
 
 void loop()
 {
-  //Serial.println(getTemperature(Sensors[0]));
-  //Serial.println(getHumidity(Sensors[1]));
-  //Serial.println("-");
 
+  //on timer1
+  //вернуть
+  ReadSensors();
+
+  //on timer2
+  //вернуть
+  RunActuators();
+
+  // on timer3
+  //вернуть
+  CheckSMSCommads();
+
+  if (millis() - timer >= PERIOD) {
+    // ваше действие
+    timer += PERIOD;
+  }
+}
+
+void InitSMSModem()
+{
+  // Начать последовательную связь Arduino и SIM900
+  SIM900power();
+  //delay(2000);
+
+  mySerial.begin(BAUD);//9600
+  Serial.println(F("Initializing..."));
+  SIM900Restart();
+  //delay(2000);
+  while (!mySerial.available()) {           // Зацикливаем и ждем инициализацию SIM800L
+    mySerial.println("AT");                  // Отправка команды AT
+    delay(1000);
+    updateSerial();
+    Serial.println(F("Connecting..."));         // Печатаем текст
+  }
+  //mySerial.println(F("AT+CSCS=\"GSM\""));
+  //delay(1000);
+  //updateSerial();
+  Serial.println(F("Connected!"));            // Печатаем текст
+  mySerial.println(F("AT+CMGF=1"));           // Настройка текствого режима
+  delay(1000);                             // Пауза
+  updateSerial();
+  mySerial.println(F("AT+CNMI=1,2,0,0,0"));   // Отправка команды AT+CNMI=1,2,0,0,0
+  delay(1000);                             // Пауза
+  updateSerial();
+  mySerial.println(F("AT+CMGL=\"REC UNREAD\""));
+  delay(1000);
+  updateSerial();
+  SendSMS(F("Ready"), OwnerPhoneNumber);
+}
+
+void RunActuators()
+{
+  for (int i = 0; i < ACTUATORSCOUNT; i++)
+  {
+    Actuators[i].Run();
+
+#ifdef DEBUG
+    Serial.println(String(i) + ". " + SmartHomeRoomsCaptions[Actuators[i].Placement] + F(": Actuator") +
+                   Actuators[i].Name + ": " + Actuators[i].Value);
+#else
+
+#endif
+
+    delay(1000);
+  }
+}
+
+void ReadSensors()
+{
   for (int i = 0; i < SENSORSCOUNT; i++)
   {
     Sensors[i].Read();
@@ -224,9 +309,12 @@ void loop()
 #endif
 
     delay(1000);
-
   }
+}
 
+
+void CheckSMSCommads()
+{
   String inputString;
   String Message = "";
 
@@ -242,17 +330,15 @@ void loop()
   //    }
   //  }
 
-
+  
   if (mySerial.available())// Проверяем, если есть доступные данные
   {
-    delay(10);                                 // Пауза
+    SendSMS("111111111111111111111111111111111111111111111111111111111111", OwnerPhoneNumber);
+     
     while (mySerial.available()) {              // Проверяем, есть ли еще данные.
       inputString += (char)mySerial.read();                // Записываем считанный байт в массив inputString
       delay(10);
-    }
-
-    //while ((inputString.indexOf(F("+CIEV:")) > -1) || (inputString.indexOf(F("+CMT:")) > -1));
-    delay(100);                               // Пауза
+    }    
 #ifdef DEBUG
     Serial.println(inputString);
 #else
@@ -265,7 +351,7 @@ void loop()
     if ((inputString.indexOf(F("+CIEV:")) > -1) && (inputString.indexOf(F("+CMT:")) > -1)
         && (inputString.indexOf(OwnerPhoneNumber) > -1))
     {
-      if (inputString.indexOf(F("DATA")) > -1) {     // Проверяем полученные данные
+      if (inputString.indexOf(CommandsList[shDATA]) > -1) {     // Проверяем полученные данные
         if (Armed)
           Message = F("ARMED");
         else
@@ -283,8 +369,8 @@ void loop()
         }
 
       }
-      //постановка на охрну
-      if (inputString.indexOf(F("ARM")) > -1) {     // Проверяем полученные данные
+      //постановка на охрану
+      if (inputString.indexOf(CommandsList[shARM]) > -1) {     // Проверяем полученные данные
         Armed = true;
         for (int i = 0; i < SENSORSCOUNT; i++)
           Sensors[i].Armed = Armed;
@@ -294,7 +380,7 @@ void loop()
         SendSMS(Message, OwnerPhoneNumber); // send SMS
       }
       // снятие с охраны
-      if (inputString.indexOf(F("FREE")) > -1) {     // Проверяем полученные данные
+      if (inputString.indexOf(CommandsList[shFREE]) > -1) {     // Проверяем полученные данные
         Armed = false;
         Sensors[0].Armed = Armed;
         Sensors[1].Armed = Armed;
@@ -303,7 +389,7 @@ void loop()
         SendSMS(Message, OwnerPhoneNumber); // send SMS
       }
       // Show Commands List
-      if (inputString.indexOf(F("HELP")) > -1) {     // Проверяем полученные данные
+      if (inputString.indexOf(CommandsList[shHELP]) > -1) {     // Проверяем полученные данные
         Message = "";
         for (int i = 0; i < CommandCount; i++)
         {
@@ -313,7 +399,7 @@ void loop()
         SendSMS(Message, OwnerPhoneNumber); // send SMS
       }
       // STATUS
-      if (inputString.indexOf(F("STATUS")) > -1) {     // Проверяем полученные данные
+      if (inputString.indexOf(CommandsList[shSTATUS]) > -1) {     // Проверяем полученные данные
         if (Armed)
           Message = F("ARMED");
         else
@@ -348,7 +434,11 @@ void loop()
         }
       }
 
-      delay(5000);
+      // Controller reset
+      if (inputString.indexOf(CommandsList[shRESET]) > -1) {     // Проверяем полученные данные
+        resetFunc(); //вызываем reset
+      }
+      delay(1000);
       if (inputString.indexOf(F("OK")) == -1) {
         mySerial.println(F("AT+CMGD=2,4"));
         delay(1000);
@@ -358,8 +448,6 @@ void loop()
 
   }
 }
-
-
 
 
 // functions
@@ -376,14 +464,15 @@ void SIM900power()
 //2 correct
 void SIM900Restart()
 {
-  pinMode(10, OUTPUT);
-  digitalWrite(10, LOW);
+  // if UNO???
+  pinMode(7, OUTPUT);
+  digitalWrite(7, LOW);
   delay(1000);
-  digitalWrite(10, HIGH);
+  digitalWrite(7, HIGH);
   delay(2000);
-  digitalWrite(10, LOW);
+  digitalWrite(7, LOW);
   delay(3000);
-  resetFunc(); //вызываем reset
+  //resetFunc(); //вызываем reset
 }
 
 
@@ -391,12 +480,12 @@ void SIM900Restart()
 void updateSerial()
 {
   delay(500);
-  while (Serial.available())
-  {
-    // Пересылка того, что было получено с аппаратного последовательного порта,
-    // на программный последовательный порт
-    mySerial.write(Serial.read());
-  }
+  //  while (Serial.available())
+  //  {
+  //    // Пересылка того, что было получено с аппаратного последовательного порта,
+  //    // на программный последовательный порт
+  //    mySerial.write(Serial.read());
+  //  }
   while (mySerial.available())
   {
     // Пересылка того, что было получено с программного последовательного порта,
@@ -408,23 +497,210 @@ void updateSerial()
 void SendSMS(String text, String phone)  // Процедура Отправка SMS
 {
 #ifdef DEBUG
-  Serial.println("AT+CMGS=\"" + phone + "\"");
+  Serial.print(F("AT+CMGS=\""));
+  Serial.println( phone + "\"");
   delay(500);
-  Serial.print(text);
+  Serial.println(text);
   delay(500);
   Serial.println(F("SMS send complete"));
   delay(500);
 #else
-  mySerial.println("AT+CMGS=\"" + phone + "\"");
+  mySerial.print(F("AT+CMGS=\""));
+  mySerial.println(phone + "\"");
+  mySerial.print(text);
+  mySerial.print((char)26);
+  Serial.println(F("SMS send complete"));
+#endif
+}
+
+void SendEmail(String text, String Mail)  // Процедура Отправка SMS
+{
+#ifdef DEBUG
+  //
+  //Электронный адрес  Полное имя почтового ящика, включая логин, @ и домен
+  //Сервер входящей почты (IMAP- и POP3-сервера)  IMAP-сервер — imap.mail.ru
+  //POP3-сервер — pop.mail.ru
+  //Сервер исходящей почты (SMTP-сервер)  smtp.mail.ru
+  //Имя пользователя
+  //Полное имя почтового ящика, включая логин, @ и домен
+  //
+  //Пароль  Пароль, который вы используете для входа в почтовый ящик
+  //Порт  IMAP — 993 (протокол шифрования SSL/TLS)
+  //POP3 — 995 (протокол шифрования SSL/TLS)
+  //SMTP — 465 (протокол шифрования SSL/TLS)
+  //Аутентификация  Обычный пароль (без шифрования)
+
+  //  AT + CREG = 1//
+  //              AT + CREG ?//
+  //              Команда проверки подключения модуля к GPRS - сети, которую при ответе COMMAND NO RESPONSE необходимо постоянно повторять
+  ///     AT + CGATT = 1//
+  //        AT + CGATT ?//
+  //       Подключаемся к точке доступа оператора связи. Для Билайн ://
+  //     AT + CGDCONT = 1, "IP", "internet.beeline.ru"//
+  //         AT + CSTT = "internet.beeline.ru", "", ""//
+  //       Установка интернет -соединения ://
+
+  //Последовательность ввода AT команд с описанием
+  //Настройки интернет соединения
+  //mySerial.print(F("AT+SAPBR=1,1"));
+  delay(100);
+  updateSerial();
+  //  mySerial.print(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"")); // задаем команду выхода в интернет
+  mySerial.print(F("AT+CGATT=1"));
+  mySerial.print(F("AT+CGATT?"));
+  updateSerial();
+  delay(100);
+  //  mySerial.print(F("AT+SAPBR=3,1,\"APN\",\"internet.mts.ru\"")); // - настройки APN на примере МТС
+  //  delay(100);
+  //  mySerial.print(F("AT+SAPBR=3,1,\"USER\",\"mts\"")); // - имя пользователя
+  //  delay(100);
+  //  mySerial.print(F("AT+SAPBR=3,1,\"PWD\",\"mts\"")); // - пароль
+
+  mySerial.print(F("AT+CGDCONT = 1, \"IP\", \"internet.mts.ru\""));
+  mySerial.print(F("AT+CSTT = \"internet.mts.ru\", \"mts\", \"mts\"")); // - пароль
+  updateSerial();
+  delay(100);
+  updateSerial();
+  //  mySerial.print(F("AT+SAPBR=1,1")); // - установить GPRS соединение
+  //  mySerial.print(F("AT+SAPBR=2,1")); // - отобразить IP адрес соединения (не обязателно)
+  mySerial.print(F("AT+CGACT=1,1")); // - установить GPRS соединение
+  mySerial.print(F("AT+CGACT=2,1")); // - отобразить IP адрес соединения (не обязателно)
+  delay(100);
+  updateSerial();
+
+
+
+
+
+
+  //Настройки для отправки e-mail :
+  mySerial.print(F("AT+EMAILCID=1")); // - Установка CID параметра для email сессии.
+  mySerial.print(F("AT+EMAILTO=30")); // - Установка таймаута для SMTP и POP серверов.
+  mySerial.print(F("AT+SMTPSRV=\"smtp.mail.ru\", 465")); // - Установка адреса и порта SMTP почтового сервера.
+  mySerial.print(F("AT+SMTPAUTH=1,\"o_torel@mail.ru\", \"Temple0f1ce\"")); // - Аутентификация (e-mail адрес, и пароль от e-mail)
+  mySerial.print(F("AT+SMTPFROM=\"o_torel@mail.ru\", \"Arduino uno\"")); // - от кого письмо (почтовый адрес, имя отправителя)
+  mySerial.print(F("AT+SMTPRCPT=0,0,\"o_torel@mail.ru\", \"Atmega328\"")); // - кому письмо (почтовый адрес, имя получателя)
+  mySerial.print(F("AT+SMTPSUB= \"First message\"")); // // тема письма
+  mySerial.print(F("AT+SMTPBODY= 19")); // задаем сколько символов в письме
+  //После получение ответа от модуля DOWNLOAD.
+  //вводим текст письма длиной 19 символов.
+  //Для отправки в конце сообщения отправляем символ SUB ( (char)26 или Cntrl+Z)
+  mySerial.print(F("hello new message"));
+  mySerial.print((char)26);
+  mySerial.print(F("AT+SMTPSEND")); //- Отправка письма.
+  //Ответы:
+  //1 - письмо успешно отправлено
+  //Некоторые ошибки:
+  //61 - ошибка соединения
+  //63 - ошибка подключения SMTP TCP
+  //64 - время сессии истекло
+  //67 - ошибка аутентификации
+  mySerial.print(F("AT+SAPBR=0,1")); //- разорвать GPRS соединение
+
+
+
+  //mySerial.println(phone + "\"");
+  //mySerial.print(text);
+  Serial.println(F("Mail send complete"));
+#else
+
+
+#endif
+}
+
+void SendHTTPServer(String text, String HTTP)  // Процедура Отправка SMS
+{
+#ifdef DEBUG
+  //
+  //Электронный адрес  Полное имя почтового ящика, включая логин, @ и домен
+  //Сервер входящей почты (IMAP- и POP3-сервера)  IMAP-сервер — imap.mail.ru
+  //POP3-сервер — pop.mail.ru
+  //Сервер исходящей почты (SMTP-сервер)  smtp.mail.ru
+  //Имя пользователя
+  //Полное имя почтового ящика, включая логин, @ и домен
+  //
+  //Пароль  Пароль, который вы используете для входа в почтовый ящик
+  //Порт  IMAP — 993 (протокол шифрования SSL/TLS)
+  //POP3 — 995 (протокол шифрования SSL/TLS)
+  //SMTP — 465 (протокол шифрования SSL/TLS)
+  //Аутентификация  Обычный пароль (без шифрования)
+
+  //AT+CREG=1
+  //AT+CREG?
+  //Команда проверки подключения модуля к GPRS-сети, которую при ответе COMMAND NO RESPONSE необходимо постоянно повторять
+  //AT + CGATT=1
+  //AT + CGATT?
+  //Подключаемся к точке доступа оператора связи. Для Билайн:
+  //AT + CGDCONT = 1, "IP", "internet.beeline.ru"
+  //AT + CSTT = "internet.beeline.ru","", ""
+  //Установка интернет-соединения:
+  //AT + CGACT = 1,1
+
+
+
+  //Последовательность ввода AT команд с описанием
+  //Настройки интернет соединения
+  mySerial.print(F("AT+SAPBR=1,1"));
+
+  mySerial.print(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"")); // задаем команду выхода в интернет
+  delay(100);
+  mySerial.print(F("AT+SAPBR=3,1,\"APN\",\"internet.mts.ru\"")); // - настройки APN на примере МТС
+  delay(100);
+  mySerial.print(F("AT+SAPBR=3,1,\"USER\",\"mts\"")); // - имя пользователя
+  delay(100);
+  mySerial.print(F("AT+SAPBR=3,1,\"PWD\",\"mts\"")); // - пароль
+  delay(100);
+  updateSerial();
+  mySerial.print(F("AT+SAPBR=1,1")); // - установить GPRS соединение
+  mySerial.print(F("AT+SAPBR=2,1")); // - отобразить IP адрес соединения (не обязателно)
+  delay(100);
+  updateSerial();
+  //Настройки для отправки e-mail :
+  mySerial.print(F("AT+EMAILCID=1")); // - Установка CID параметра для email сессии.
+  mySerial.print(F("AT+EMAILTO=30")); // - Установка таймаута для SMTP и POP серверов.
+  mySerial.print(F("AT+SMTPSRV=\"smtp.mail.ru\", 465")); // - Установка адреса и порта SMTP почтового сервера.
+  mySerial.print(F("AT+SMTPAUTH=1,\"o_torel@mail.ru\", \"Temple0f1ce\"")); // - Аутентификация (e-mail адрес, и пароль от e-mail)
+  mySerial.print(F("AT+SMTPFROM=\"o_torel@mail.ru\", \"Arduino uno\"")); // - от кого письмо (почтовый адрес, имя отправителя)
+  mySerial.print(F("AT+SMTPRCPT=0,0,\"o_torel@mail.ru\", \"Atmega328\"")); // - кому письмо (почтовый адрес, имя получателя)
+  mySerial.print(F("AT+SMTPSUB= \"First message\"")); // // тема письма
+  mySerial.print(F("AT+SMTPBODY= 19")); // задаем сколько символов в письме
+  //После получение ответа от модуля DOWNLOAD.
+  //вводим текст письма длиной 19 символов.
+  //Для отправки в конце сообщения отправляем символ SUB ( (char)26 или Cntrl+Z)
+  mySerial.print(F("hello new message"));
+  mySerial.print((char)26);
+  mySerial.print(F("AT+SMTPSEND")); //- Отправка письма.
+  //Ответы:
+  //1 - письмо успешно отправлено
+  //Некоторые ошибки:
+  //61 - ошибка соединения
+  //63 - ошибка подключения SMTP TCP
+  //64 - время сессии истекло
+  //67 - ошибка аутентификации
+  mySerial.print(F("AT+SAPBR=0,1")); //- разорвать GPRS соединение
+
+
+
+  //mySerial.println(phone + "\"");
+  //mySerial.print(text);
+  Serial.println(F("Mail send complete"));
+
+
+
+#else
+  mySerial.print(F("AT+CMGS=\""));
+  //mySerial.println(phone + "\"");
   mySerial.print(text);
   Serial.println(F("SMS send complete"));
 #endif
 }
 
+
+
 void Alarm(TARSensor & Sensor)
 {
   String Message = String (SmartHomeRoomsCaptions[Sensor.Placement]) + F(": Sensor") + String(Sensor.Name + ": " +
-                   Sensor.Value + Sensor.Unit  + "\n");
+                   Sensor.Value + Sensor.Unit  + F("\n"));
 
 #ifdef DEBUG
   SendSMS("ALARM: " + Message, OwnerPhoneNumber);
