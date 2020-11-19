@@ -162,7 +162,7 @@ void ARAnalogTemperatureSensorRead(TARSensor& Sensor)
   //  Temp = Temp - 273.15; // Кельвин -> Цельсий
   //
   //  Sensor.Value = String(Temp);
-  Sensor.Value = String((readMean(Sensor.Pin, 20) * 5.0 / 1024 * 1.1 /*+ 0.5*/) * 100 - 10 - 273.15);
+  Sensor.Value = String((readMean(Sensor.Pin, 20) * 5.0 / 1024 * 1.1 /*+ 0.5*/) * 100 - 273.15);
   delay(Sensor.Period);
   return ;//Sensor.Value;
 }

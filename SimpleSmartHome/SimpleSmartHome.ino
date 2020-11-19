@@ -47,7 +47,7 @@
 #include "lib\ARSensors\ARSensors.h"
 #include "lib\ARActuators\ARActuators.h"
 
-#define DEBUG = true;// true - debug version/ false - release version
+//#define DEBUG = true;// true - debug version/ false - release version
 //#define PLATFORM_UNO;// true - debug version/ false - release version
 #define PLATFORM_MEGA = true;// true - debug version/ false - release version
 
@@ -57,13 +57,13 @@ uint32_t timer = 0;
 
 // Constants
 const char* OwnerPhoneNumber  = "+79105544321";
-const long BAUD = 9600;
+const long BAUD = 9600;//115200;//9600;
 
 
 
 const byte CommandCount = 7;
 const char* CommandsList[CommandCount]  = // an array list of commads for smart home
-{ "ARM", "FREE", "DATA", "RESET", "HELP", "STATUS", "ALARMS_RESET" };
+{ "ARM", "DISARM", "DATA", "RESET", "HELP", "STATUS", "ALARMS_RESET" };
 //const byte CommandCount = 7;
 //const char Arr0[] = "ARM";
 //const char Arr1[] = "FREE";
@@ -98,17 +98,18 @@ enum TARSmartHomeCommads {
 #define PLATFORM_MEGA = true;// true - debug version/ false - release version
 
 #ifdef PLATFORM_UNO
-SoftwareSerial mySerial(7, 8);
+//SoftwareSerial Serial3(7, 8);
 #else
 
 #ifdef PLATFORM_MEGA
-SoftwareSerial mySerial(10, 11); //RX/TX
+//SoftwareSerial Serial3(19, 18); //RX/TX
+
 #else
 #endif
 
 
 #endif
-
+//SoftwareSerial Serial3(14, 15); //RX/TX
 
 bool Armed = false;
 const byte ROOMSCOUNT = 9;//
@@ -209,32 +210,31 @@ void InitActuators()
 
 void setup()
 {
-  //analogReference(INTERNAL);
   Serial.begin(BAUD);//9600
+  Serial3.begin(BAUD);//9600
 
   while (!Serial)
   {
     // wait for serial port to connect.
   }
-
+  while (!Serial3)
+  {
+    // wait for serial port to connect.
+  }
   InitSMSModem();
-  //SendEmail("", "");
-  //delay(3000);
-  //вернуть
   InitSensors();
   InitActuators();
 }
 
 void loop()
 {
-
   //on timer1
   //вернуть
   ReadSensors();
 
   //on timer2
   //вернуть
-  RunActuators();
+  //RunActuators();
 
   // on timer3
   //вернуть
@@ -252,29 +252,41 @@ void InitSMSModem()
   SIM900power();
   //delay(2000);
 
-  mySerial.begin(BAUD);//9600
   Serial.println(F("Initializing..."));
   SIM900Restart();
   //delay(2000);
-  while (!mySerial.available()) {           // Зацикливаем и ждем инициализацию SIM800L
-    mySerial.println("AT");                  // Отправка команды AT
+  while (!Serial3.available()) {           // Зацикливаем и ждем инициализацию SIM800L
+    Serial3.println("AT");                  // Отправка команды AT
     delay(1000);
-    updateSerial();
     Serial.println(F("Connecting..."));         // Печатаем текст
   }
-  //mySerial.println(F("AT+CSCS=\"GSM\""));
-  //delay(1000);
-  //updateSerial();
+  delay(300);
   Serial.println(F("Connected!"));            // Печатаем текст
-  mySerial.println(F("AT+CMGF=1"));           // Настройка текствого режима
-  delay(1000);                             // Пауза
-  updateSerial();
-  mySerial.println(F("AT+CNMI=1,2,0,0,0"));   // Отправка команды AT+CNMI=1,2,0,0,0
-  delay(1000);                             // Пауза
-  updateSerial();
-  mySerial.println(F("AT+CMGL=\"REC UNREAD\""));
-  delay(1000);
-  updateSerial();
+  Serial3.println(F("AT+CMGF=1"));           // Настройка текствого режима
+  delay(300);                                // Пауза
+  //Serial3.println("AT+CSCS=\"GSM\"");        // кодировка текста - GSM
+  //delay(300);
+  //Serial3.println(F("AT+CNMI=1,2,0,0,0"));   // Отправка команды AT+CNMI=1,2,0,0,0
+  Serial3.println(F("AT+CNMI=2,2,0,0,0"));   // Отправка команды AT+CNMI=1,2,0,0,0
+
+  //AT+CNMI=1,2,2,1,0 — вывод принятого sms в терминал.
+  delay(300);                             // Пауза
+  Serial3.println(F("AT+CMGL=\"REC UNREAD\""));
+  delay(300);
+  Serial3.println("AT+CMGD=1,4"); //delete all the message in the storage
+  delay(300);
+
+
+
+  //   Serial3.println("AT+CMGF=1");           // Отправка команды AT+CMGF=1
+  //   delay(1000);                             // Пауза
+  //   Serial3.println("AT+CNMI=1,2,0,0,0");   // Отправка команды AT+CNMI=1,2,0,0,0
+  //   delay(1000);                             // Пауза
+  //   Serial3.println("AT+CMGL=\"REC UNREAD\"");
+
+
+  //  Serial3.println(F("AT+CSCS=\"GSM\""));
+  //  delay(1000);
   SendSMS(F("Ready"), OwnerPhoneNumber);
 }
 
@@ -315,34 +327,31 @@ void ReadSensors()
 
 void CheckSMSCommads()
 {
-  String inputString;
-  String Message = "";
 
-
-  //  if (!mySerial.available())
+  //  if (!Serial3.available())
   //  {
-  //    mySerial.println("AT");
+  //    Serial3.println("AT");
   //    delay(1000);
-  //    if (!mySerial.available())
+  //    if (!Serial3.available())
   //    {
   //      Serial.println(F("RESET"));
   //      SIM900Restart();
   //    }
   //  }
 
-  
-  if (mySerial.available())// Проверяем, если есть доступные данные
+  if (Serial3.available())// Проверяем, если есть доступные данные
+    //while (Serial3.available())// Проверяем, если есть доступные данные
   {
-    SendSMS("111111111111111111111111111111111111111111111111111111111111", OwnerPhoneNumber);
-     
-    while (mySerial.available()) {              // Проверяем, есть ли еще данные.
-      inputString += (char)mySerial.read();                // Записываем считанный байт в массив inputString
+    String inputString;
+    String Message = "";
+    while (Serial3.available()) {              // Проверяем, есть ли еще данные.
+      inputString += (char)Serial3.read();     // Записываем считанный байт в массив inputString
       delay(10);
-    }    
+    }
 #ifdef DEBUG
     Serial.println(inputString);
 #else
-
+    Serial.println(inputString);
 #endif
 
     // Отправка в "Мониторинг порта" считанные данные
@@ -390,6 +399,7 @@ void CheckSMSCommads()
       }
       // Show Commands List
       if (inputString.indexOf(CommandsList[shHELP]) > -1) {     // Проверяем полученные данные
+        // if (inputString.indexOf("HELP") > -1) {     // Проверяем полученные данные
         Message = "";
         for (int i = 0; i < CommandCount; i++)
         {
@@ -405,6 +415,7 @@ void CheckSMSCommads()
         else
           Message = F("DISARMED");
         SendSMS(Message, OwnerPhoneNumber); // send SMS
+        delay(1000);
 
         for (int i = 0; i < SENSORSCOUNT; i++)
         {
@@ -419,7 +430,9 @@ void CheckSMSCommads()
             Message += F(" IsArmed");
           else Message += F(" IsDisArmed");
           Serial.println(Message);
+          delay(1000);
           SendSMS(Message, OwnerPhoneNumber); // send SMS
+          delay(1000);
         }
       }
       // Alarm reset
@@ -440,7 +453,8 @@ void CheckSMSCommads()
       }
       delay(1000);
       if (inputString.indexOf(F("OK")) == -1) {
-        mySerial.println(F("AT+CMGD=2,4"));
+        Serial3.println(F("AT+CMGD=2,4"));
+        //Serial3.println("AT+CMGDA=\"DEL ALL\"")
         delay(1000);
       }
       inputString = "";
@@ -480,22 +494,23 @@ void SIM900Restart()
 void updateSerial()
 {
   delay(500);
-  //  while (Serial.available())
-  //  {
-  //    // Пересылка того, что было получено с аппаратного последовательного порта,
-  //    // на программный последовательный порт
-  //    mySerial.write(Serial.read());
-  //  }
-  while (mySerial.available())
+  while (Serial.available())
+  {
+    // Пересылка того, что было получено с аппаратного последовательного порта,
+    // на программный последовательный порт
+    Serial3.write(Serial.read());
+  }
+  while (Serial3.available())
   {
     // Пересылка того, что было получено с программного последовательного порта,
     // на аппаратный последовательный порт
-    Serial.write(mySerial.read());
+    Serial.write(Serial3.read());
   }
 }
 //
 void SendSMS(String text, String phone)  // Процедура Отправка SMS
 {
+  delay(500);
 #ifdef DEBUG
   Serial.print(F("AT+CMGS=\""));
   Serial.println( phone + "\"");
@@ -505,10 +520,13 @@ void SendSMS(String text, String phone)  // Процедура Отправка 
   Serial.println(F("SMS send complete"));
   delay(500);
 #else
-  mySerial.print(F("AT+CMGS=\""));
-  mySerial.println(phone + "\"");
-  mySerial.print(text);
-  mySerial.print((char)26);
+  Serial3.print(F("AT+CMGS=\""));
+  Serial3.println(phone + "\"");
+  delay(5000);
+  Serial3.print(text);
+  delay(5000);
+  Serial3.print((char)26);  
+  delay(5000);
   Serial.println(F("SMS send complete"));
 #endif
 }
@@ -542,29 +560,29 @@ void SendEmail(String text, String Mail)  // Процедура Отправка
 
   //Последовательность ввода AT команд с описанием
   //Настройки интернет соединения
-  //mySerial.print(F("AT+SAPBR=1,1"));
+  //Serial3.print(F("AT+SAPBR=1,1"));
   delay(100);
   updateSerial();
-  //  mySerial.print(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"")); // задаем команду выхода в интернет
-  mySerial.print(F("AT+CGATT=1"));
-  mySerial.print(F("AT+CGATT?"));
+  //  Serial3.print(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"")); // задаем команду выхода в интернет
+  Serial3.print(F("AT+CGATT=1"));
+  Serial3.print(F("AT+CGATT?"));
   updateSerial();
   delay(100);
-  //  mySerial.print(F("AT+SAPBR=3,1,\"APN\",\"internet.mts.ru\"")); // - настройки APN на примере МТС
+  //  Serial3.print(F("AT+SAPBR=3,1,\"APN\",\"internet.mts.ru\"")); // - настройки APN на примере МТС
   //  delay(100);
-  //  mySerial.print(F("AT+SAPBR=3,1,\"USER\",\"mts\"")); // - имя пользователя
+  //  Serial3.print(F("AT+SAPBR=3,1,\"USER\",\"mts\"")); // - имя пользователя
   //  delay(100);
-  //  mySerial.print(F("AT+SAPBR=3,1,\"PWD\",\"mts\"")); // - пароль
+  //  Serial3.print(F("AT+SAPBR=3,1,\"PWD\",\"mts\"")); // - пароль
 
-  mySerial.print(F("AT+CGDCONT = 1, \"IP\", \"internet.mts.ru\""));
-  mySerial.print(F("AT+CSTT = \"internet.mts.ru\", \"mts\", \"mts\"")); // - пароль
+  Serial3.print(F("AT+CGDCONT = 1, \"IP\", \"internet.mts.ru\""));
+  Serial3.print(F("AT+CSTT = \"internet.mts.ru\", \"mts\", \"mts\"")); // - пароль
   updateSerial();
   delay(100);
   updateSerial();
-  //  mySerial.print(F("AT+SAPBR=1,1")); // - установить GPRS соединение
-  //  mySerial.print(F("AT+SAPBR=2,1")); // - отобразить IP адрес соединения (не обязателно)
-  mySerial.print(F("AT+CGACT=1,1")); // - установить GPRS соединение
-  mySerial.print(F("AT+CGACT=2,1")); // - отобразить IP адрес соединения (не обязателно)
+  //  Serial3.print(F("AT+SAPBR=1,1")); // - установить GPRS соединение
+  //  Serial3.print(F("AT+SAPBR=2,1")); // - отобразить IP адрес соединения (не обязателно)
+  Serial3.print(F("AT+CGACT=1,1")); // - установить GPRS соединение
+  Serial3.print(F("AT+CGACT=2,1")); // - отобразить IP адрес соединения (не обязателно)
   delay(100);
   updateSerial();
 
@@ -574,20 +592,20 @@ void SendEmail(String text, String Mail)  // Процедура Отправка
 
 
   //Настройки для отправки e-mail :
-  mySerial.print(F("AT+EMAILCID=1")); // - Установка CID параметра для email сессии.
-  mySerial.print(F("AT+EMAILTO=30")); // - Установка таймаута для SMTP и POP серверов.
-  mySerial.print(F("AT+SMTPSRV=\"smtp.mail.ru\", 465")); // - Установка адреса и порта SMTP почтового сервера.
-  mySerial.print(F("AT+SMTPAUTH=1,\"o_torel@mail.ru\", \"Temple0f1ce\"")); // - Аутентификация (e-mail адрес, и пароль от e-mail)
-  mySerial.print(F("AT+SMTPFROM=\"o_torel@mail.ru\", \"Arduino uno\"")); // - от кого письмо (почтовый адрес, имя отправителя)
-  mySerial.print(F("AT+SMTPRCPT=0,0,\"o_torel@mail.ru\", \"Atmega328\"")); // - кому письмо (почтовый адрес, имя получателя)
-  mySerial.print(F("AT+SMTPSUB= \"First message\"")); // // тема письма
-  mySerial.print(F("AT+SMTPBODY= 19")); // задаем сколько символов в письме
+  Serial3.print(F("AT+EMAILCID=1")); // - Установка CID параметра для email сессии.
+  Serial3.print(F("AT+EMAILTO=30")); // - Установка таймаута для SMTP и POP серверов.
+  Serial3.print(F("AT+SMTPSRV=\"smtp.mail.ru\", 465")); // - Установка адреса и порта SMTP почтового сервера.
+  Serial3.print(F("AT+SMTPAUTH=1,\"o_torel@mail.ru\", \"Temple0f1ce\"")); // - Аутентификация (e-mail адрес, и пароль от e-mail)
+  Serial3.print(F("AT+SMTPFROM=\"o_torel@mail.ru\", \"Arduino uno\"")); // - от кого письмо (почтовый адрес, имя отправителя)
+  Serial3.print(F("AT+SMTPRCPT=0,0,\"o_torel@mail.ru\", \"Atmega328\"")); // - кому письмо (почтовый адрес, имя получателя)
+  Serial3.print(F("AT+SMTPSUB= \"First message\"")); // // тема письма
+  Serial3.print(F("AT+SMTPBODY= 19")); // задаем сколько символов в письме
   //После получение ответа от модуля DOWNLOAD.
   //вводим текст письма длиной 19 символов.
   //Для отправки в конце сообщения отправляем символ SUB ( (char)26 или Cntrl+Z)
-  mySerial.print(F("hello new message"));
-  mySerial.print((char)26);
-  mySerial.print(F("AT+SMTPSEND")); //- Отправка письма.
+  Serial3.print(F("hello new message"));
+  Serial3.print((char)26);
+  Serial3.print(F("AT+SMTPSEND")); //- Отправка письма.
   //Ответы:
   //1 - письмо успешно отправлено
   //Некоторые ошибки:
@@ -595,12 +613,12 @@ void SendEmail(String text, String Mail)  // Процедура Отправка
   //63 - ошибка подключения SMTP TCP
   //64 - время сессии истекло
   //67 - ошибка аутентификации
-  mySerial.print(F("AT+SAPBR=0,1")); //- разорвать GPRS соединение
+  Serial3.print(F("AT+SAPBR=0,1")); //- разорвать GPRS соединение
 
 
 
-  //mySerial.println(phone + "\"");
-  //mySerial.print(text);
+  //Serial3.println(phone + "\"");
+  //Serial3.print(text);
   Serial.println(F("Mail send complete"));
 #else
 
@@ -640,36 +658,36 @@ void SendHTTPServer(String text, String HTTP)  // Процедура Отпра�
 
   //Последовательность ввода AT команд с описанием
   //Настройки интернет соединения
-  mySerial.print(F("AT+SAPBR=1,1"));
+  Serial3.print(F("AT+SAPBR=1,1"));
 
-  mySerial.print(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"")); // задаем команду выхода в интернет
+  Serial3.print(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"")); // задаем команду выхода в интернет
   delay(100);
-  mySerial.print(F("AT+SAPBR=3,1,\"APN\",\"internet.mts.ru\"")); // - настройки APN на примере МТС
+  Serial3.print(F("AT+SAPBR=3,1,\"APN\",\"internet.mts.ru\"")); // - настройки APN на примере МТС
   delay(100);
-  mySerial.print(F("AT+SAPBR=3,1,\"USER\",\"mts\"")); // - имя пользователя
+  Serial3.print(F("AT+SAPBR=3,1,\"USER\",\"mts\"")); // - имя пользователя
   delay(100);
-  mySerial.print(F("AT+SAPBR=3,1,\"PWD\",\"mts\"")); // - пароль
+  Serial3.print(F("AT+SAPBR=3,1,\"PWD\",\"mts\"")); // - пароль
   delay(100);
   updateSerial();
-  mySerial.print(F("AT+SAPBR=1,1")); // - установить GPRS соединение
-  mySerial.print(F("AT+SAPBR=2,1")); // - отобразить IP адрес соединения (не обязателно)
+  Serial3.print(F("AT+SAPBR=1,1")); // - установить GPRS соединение
+  Serial3.print(F("AT+SAPBR=2,1")); // - отобразить IP адрес соединения (не обязателно)
   delay(100);
   updateSerial();
   //Настройки для отправки e-mail :
-  mySerial.print(F("AT+EMAILCID=1")); // - Установка CID параметра для email сессии.
-  mySerial.print(F("AT+EMAILTO=30")); // - Установка таймаута для SMTP и POP серверов.
-  mySerial.print(F("AT+SMTPSRV=\"smtp.mail.ru\", 465")); // - Установка адреса и порта SMTP почтового сервера.
-  mySerial.print(F("AT+SMTPAUTH=1,\"o_torel@mail.ru\", \"Temple0f1ce\"")); // - Аутентификация (e-mail адрес, и пароль от e-mail)
-  mySerial.print(F("AT+SMTPFROM=\"o_torel@mail.ru\", \"Arduino uno\"")); // - от кого письмо (почтовый адрес, имя отправителя)
-  mySerial.print(F("AT+SMTPRCPT=0,0,\"o_torel@mail.ru\", \"Atmega328\"")); // - кому письмо (почтовый адрес, имя получателя)
-  mySerial.print(F("AT+SMTPSUB= \"First message\"")); // // тема письма
-  mySerial.print(F("AT+SMTPBODY= 19")); // задаем сколько символов в письме
+  Serial3.print(F("AT+EMAILCID=1")); // - Установка CID параметра для email сессии.
+  Serial3.print(F("AT+EMAILTO=30")); // - Установка таймаута для SMTP и POP серверов.
+  Serial3.print(F("AT+SMTPSRV=\"smtp.mail.ru\", 465")); // - Установка адреса и порта SMTP почтового сервера.
+  Serial3.print(F("AT+SMTPAUTH=1,\"o_torel@mail.ru\", \"Temple0f1ce\"")); // - Аутентификация (e-mail адрес, и пароль от e-mail)
+  Serial3.print(F("AT+SMTPFROM=\"o_torel@mail.ru\", \"Arduino uno\"")); // - от кого письмо (почтовый адрес, имя отправителя)
+  Serial3.print(F("AT+SMTPRCPT=0,0,\"o_torel@mail.ru\", \"Atmega328\"")); // - кому письмо (почтовый адрес, имя получателя)
+  Serial3.print(F("AT+SMTPSUB= \"First message\"")); // // тема письма
+  Serial3.print(F("AT+SMTPBODY= 19")); // задаем сколько символов в письме
   //После получение ответа от модуля DOWNLOAD.
   //вводим текст письма длиной 19 символов.
   //Для отправки в конце сообщения отправляем символ SUB ( (char)26 или Cntrl+Z)
-  mySerial.print(F("hello new message"));
-  mySerial.print((char)26);
-  mySerial.print(F("AT+SMTPSEND")); //- Отправка письма.
+  Serial3.print(F("hello new message"));
+  Serial3.print((char)26);
+  Serial3.print(F("AT+SMTPSEND")); //- Отправка письма.
   //Ответы:
   //1 - письмо успешно отправлено
   //Некоторые ошибки:
@@ -677,20 +695,20 @@ void SendHTTPServer(String text, String HTTP)  // Процедура Отпра�
   //63 - ошибка подключения SMTP TCP
   //64 - время сессии истекло
   //67 - ошибка аутентификации
-  mySerial.print(F("AT+SAPBR=0,1")); //- разорвать GPRS соединение
+  Serial3.print(F("AT+SAPBR=0,1")); //- разорвать GPRS соединение
 
 
 
-  //mySerial.println(phone + "\"");
-  //mySerial.print(text);
+  //Serial3.println(phone + "\"");
+  //Serial3.print(text);
   Serial.println(F("Mail send complete"));
 
 
 
 #else
-  mySerial.print(F("AT+CMGS=\""));
-  //mySerial.println(phone + "\"");
-  mySerial.print(text);
+  Serial3.print(F("AT+CMGS=\""));
+  //Serial3.println(phone + "\"");
+  Serial3.print(text);
   Serial.println(F("SMS send complete"));
 #endif
 }
@@ -723,7 +741,7 @@ void Alarm(TARSensor & Sensor)
 //#include  <Adafruit_Sensor.h>                             // Подключаем библиотеку Adafruit_Sensor
 //#include  <Adafruit_BME280.h>                             // Подключаем библиотеку Adafruit_BME280
 //
-//SoftwareSerial mySerial(3, 2);                           // Выводы SIM800L Tx & Rx подключены к выводам Arduino 3 и 2
+//SoftwareSerial Serial3(3, 2);                           // Выводы SIM800L Tx & Rx подключены к выводам Arduino 3 и 2
 //#define SEALEVELPRESSURE_HPA (1013.25)                   // Задаем высоту
 //Adafruit_BME280 bme;
 //
@@ -737,32 +755,32 @@ void Alarm(TARSensor & Sensor)
 //void setup()
 //{
 //  Serial.begin(9600);
-//  mySerial.begin(9600);
+//  Serial3.begin(9600);
 //
 //  bme.begin(0x76);
 //
 //
-//  while(!mySerial.available()){             // Зацикливаем и ждем инициализацию SIM800L
-//   mySerial.println("AT");                  // Отправка команды AT
+//  while(!Serial3.available()){             // Зацикливаем и ждем инициализацию SIM800L
+//   Serial3.println("AT");                  // Отправка команды AT
 //   delay(1000);                             // Пауза
 //   Serial.println("Connecting...");         // Печатаем текст
 //   }
 //   Serial.println("Connected!");            // Печатаем текст
-//   mySerial.println("AT+CMGF=1");           // Отправка команды AT+CMGF=1
+//   Serial3.println("AT+CMGF=1");           // Отправка команды AT+CMGF=1
 //   delay(1000);                             // Пауза
-//   mySerial.println("AT+CNMI=1,2,0,0,0");   // Отправка команды AT+CNMI=1,2,0,0,0
+//   Serial3.println("AT+CNMI=1,2,0,0,0");   // Отправка команды AT+CNMI=1,2,0,0,0
 //   delay(1000);                             // Пауза
-//   mySerial.println("AT+CMGL=\"REC UNREAD\"");
+//   Serial3.println("AT+CMGL=\"REC UNREAD\"");
 //}
 //
 //void loop()
 //
 //{
-//  if(mySerial.available()){                       // Проверяем, если есть доступные данные
+//  if(Serial3.available()){                       // Проверяем, если есть доступные данные
 //      delay(100);                                 // Пауза
 //
-//      while(mySerial.available()){                // Проверяем, есть ли еще данные.
-//      incomingByte = mySerial.read();             // Считываем байт и записываем в переменную incomingByte
+//      while(Serial3.available()){                // Проверяем, есть ли еще данные.
+//      incomingByte = Serial3.read();             // Считываем байт и записываем в переменную incomingByte
 //      inputString += incomingByte;                // Записываем считанный байт в массив inputString
 //      }
 //
@@ -783,7 +801,7 @@ void Alarm(TARSensor & Sensor)
 //
 //        delay(50);
 //      if (inputString.indexOf("OK") == -1){
-//          mySerial.println("AT+CMGDA=\"DEL ALL\"");
+//          Serial3.println("AT+CMGDA=\"DEL ALL\"");
 //          delay(1000);}
 //
 //          inputString = "";}}
@@ -791,11 +809,11 @@ void Alarm(TARSensor & Sensor)
 //void sms(String text, String phone)  // Процедура Отправка SMS
 //{
 //  Serial.println("SMS send started");
-//  mySerial.println("AT+CMGS=\"" + phone + "\"");
+//  Serial3.println("AT+CMGS=\"" + phone + "\"");
 //  delay(500);
-//  mySerial.print(text);
+//  Serial3.print(text);
 //  delay(500);
-//  mySerial.print((char)26);
+//  Serial3.print((char)26);
 //  delay(500);
 //  Serial.println("SMS send complete");
 //  delay(2000);
