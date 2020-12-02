@@ -22,6 +22,7 @@
 // - logs (sd card)
 // - comunication
 // - Macros by ProcessorType
+// IRQ
 // - Actuators
 //   - hit light
 //   - humidity
@@ -46,6 +47,8 @@
 #include  <Wire.h>
 #include "lib\ARSensors\ARSensors.h"
 #include "lib\ARActuators\ARActuators.h"
+#include <math.h>
+
 
 //#define DEBUG = true;// true - debug version/ false - release version
 //#define PLATFORM_UNO;// true - debug version/ false - release version
@@ -63,7 +66,7 @@ const long BAUD = 9600;//115200;//9600;
 
 const byte CommandCount = 7;
 const char* CommandsList[CommandCount]  = // an array list of commads for smart home
-{ "ARM", "DISARM", "DATA", "RESET", "HELP", "STATUS", "ALARMS_RESET" };
+{ "ARM", "FREE", "DATA", "RESET", "HELP", "STATUS", "ALARMS_RST" };
 //const byte CommandCount = 7;
 //const char Arr0[] = "ARM";
 //const char Arr1[] = "FREE";
@@ -152,7 +155,9 @@ void InitSensors()
 {
   Sensors[0].onRead = ARAnalogSensorRead;
   Sensors[1].onRead = ARAnalogSensorRead;
-  Sensors[2].onRead = ARAnalogTemperatureSensorRead;
+  //Sensors[2].onRead = ARAnalogTemperatureSensorRead;
+  Sensors[2].onRead = AnalogThermisterRead;
+
   Sensors[3].onRead = ARAnalogSensorRead;
   Sensors[4].onRead = ARAnalogSensorRead;
   Sensors[5].onRead = ARAnalogSensorRead;
@@ -360,14 +365,18 @@ void CheckSMSCommads()
     if ((inputString.indexOf(F("+CIEV:")) > -1) && (inputString.indexOf(F("+CMT:")) > -1)
         && (inputString.indexOf(OwnerPhoneNumber) > -1))
     {
-      if (inputString.indexOf(CommandsList[shDATA]) > -1) {     // Проверяем полученные данные
+      int ind = inputString.indexOf(CommandsList[shDATA]);
+      if (ind > -1) {     // Проверяем полученные данные
         if (Armed)
           Message = F("ARMED");
         else
           Message = F("DISARMED");
         SendSMS(Message, OwnerPhoneNumber); // send SMS
-
-        for (int i = 0; i < SENSORSCOUNT; i++)
+        String tmp = inputString.substring(ind + strlen(CommandsList[shDATA]),
+                                           ind + strlen(CommandsList[shDATA]) + 3);
+        int i =  tmp.toInt();
+        //SendSMS(tmp, OwnerPhoneNumber); // send SMS
+        //for (int i = 0; i < SENSORSCOUNT; i++)
         {
           Sensors[i].Read();
           Message = String(i) + ". " + SmartHomeRoomsCaptions[Sensors[i].Placement] + F(": Sensor")
@@ -525,7 +534,7 @@ void SendSMS(String text, String phone)  // Процедура Отправка 
   delay(5000);
   Serial3.print(text);
   delay(5000);
-  Serial3.print((char)26);  
+  Serial3.print((char)26);
   delay(5000);
   Serial.println(F("SMS send complete"));
 #endif
@@ -818,3 +827,30 @@ void Alarm(TARSensor & Sensor)
 //  Serial.println("SMS send complete");
 //  delay(2000);
 //}
+
+
+
+
+
+//
+//
+//
+//Картинка показывает, что должно появляться в окне SerialMonitor после того, как вы ввели различные команды.
+//
+//AT для тестовых примеров:
+//AT =====> ESP8266 возвращает OK
+//AT + RST =====> ESP8266 рестарт и возврат OK
+//AT + GMR =====> ESP8266 возвращает версию AT; SDK version; id; OK
+//AT + CWMODE? => ESP8266 возвращает режим работы
+//AT + CWLAP ===> ESP8266 возвращает обнаруженные точки доступа
+//AT + CIFSR ===> ESP8266 возвращает установленный IP
+//AT + CIPMUX = 1 ==> Устанавливает плате ESP8266 режим работы с несколькими соединениями
+//AT + CIOBAUD = 9600 ==> Изменить скорость обмена данными  ==> ESP8266 возвращает OK
+//AT + CIPSERVER = 1.80 ==> Устанавливает режим  SERVER порт: 4040
+//AT + CWMODE = 3 ==> Работа ESP8266 в комбинированном режиме  (точка доступа (2) и сервер (1))
+//AT + CWSAP = “Acc_Point_name”, “password”, wifi_Channel, cript # ==> j.
+//AT + CWSAP = “ESP_8266_AP,” 1234 “, 3.0
+//AT + CWJAP = “SSID”, “password” ==> Подключается к сети WiFi
+//* = AT + CWJAP “ROVAI TIMECAP”, “-1 mjr747”
+//
+//

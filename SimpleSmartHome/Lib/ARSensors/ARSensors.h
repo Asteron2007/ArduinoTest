@@ -167,6 +167,23 @@ void ARAnalogTemperatureSensorRead(TARSensor& Sensor)
   return ;//Sensor.Value;
 }
 
+
+void AnalogThermisterRead(TARSensor& Sensor) {
+  double Temp;
+  Temp = log(((10240000/readMean(Sensor.Pin, 20)) - 10000));
+  Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp ))* Temp ); // Уравнение Стейнхарта-Харта
+  Temp = Temp - 273.15; // Кельвин -> Цельсий 
+  Sensor.Value = String(Temp);
+  delay(Sensor.Period);
+  return;
+}
+
+
+
+
+
+
+
 void DHTTemperatureRead(TARSensor& Sensor)
 {
   // создаём объект класса DHT
