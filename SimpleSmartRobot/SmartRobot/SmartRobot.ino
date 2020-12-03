@@ -1,3 +1,15 @@
+// https://microkontroller.ru/arduino-projects/robot-na-arduino-uno-upravlyaemyj-po-wifi/
+// https://zen.yandex.ru/media/id/5e6b3431cc34441806da9ce0/wifi-esp01-esp8266-urok-19-arduino-5f3a7d5834c1866c1c25e7b9
+//https://blynk.io/en/developers
+// https://arduinoplus.ru/7-prilozhenii-arduino-na-android/
+// https://arduinoplus.ru/kak-udalenno-upravlyat-arduino-s-blynk/
+// https://the-robot.ru/study/nodemcu-blynk-uroki-1-ustrojsva-vyvoda/
+// https://virtuino.com/index.php/virtuino/arduino-libraries
+// https://microkontroller.ru/arduino-projects/peredacha-dannyh-ot-arduino-uno-na-veb-straniczu-s-pomoshhyu-wifi/
+// https://microkontroller.ru/arduino-projects/peredacha-email-s-ispolzovaniem-arduino-i-wifi-modulya/ 
+// https://arduinoplus.ru/arduino-wifi/
+
+
 #define BLYNK_PRINT Serial    // Comment this out to disable prints and save space
 #include <ESP8266_SoftSer.h>
 #include <BlynkSimpleShieldEsp8266_SoftSer.h>
