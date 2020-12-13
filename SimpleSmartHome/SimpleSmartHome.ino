@@ -367,11 +367,11 @@ void CheckSMSCommads()
     {
       int ind = inputString.indexOf(CommandsList[shDATA]);
       if (ind > -1) {     // Проверяем полученные данные
-        if (Armed)
-          Message = F("ARMED");
-        else
-          Message = F("DISARMED");
-        SendSMS(Message, OwnerPhoneNumber); // send SMS
+        //if (Armed)
+        //  Message = F("ARMED");
+        //else
+        //  Message = F("DISARMED");
+        //SendSMS(Message, OwnerPhoneNumber); // send SMS
         String tmp = inputString.substring(ind + strlen(CommandsList[shDATA]),
                                            ind + strlen(CommandsList[shDATA]) + 3);
         int i =  tmp.toInt();
